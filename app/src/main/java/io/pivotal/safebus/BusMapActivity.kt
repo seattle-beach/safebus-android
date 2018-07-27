@@ -21,7 +21,7 @@ class BusMapActivity : AppCompatActivity(), OnMapReadyCallback {
     private val LOCATION_PERMISSION_CODE = 0
     private val PIVOTAL_LOCATION = LatLng(47.5989794, -122.335976)
 
-    private lateinit var map: GoogleMap
+    lateinit var map: GoogleMap
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
 
     override fun onCreate(savedInstanceState: Bundle?) {

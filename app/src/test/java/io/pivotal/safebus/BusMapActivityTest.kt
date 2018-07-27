@@ -11,11 +11,13 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowActivity
 
 
 @RunWith(RobolectricTestRunner::class)
 class BusMapActivityTest {
     private lateinit var subject: BusMapActivity
+    private lateinit var shadowSubject: ShadowActivity
 
     @MockK
     lateinit var mockMap: GoogleMap
@@ -25,14 +27,23 @@ class BusMapActivityTest {
         MockKAnnotations.init(this, relaxUnitFun = true)
 
         subject = Robolectric.setupActivity(BusMapActivity::class.java)
-        val shadowActivity = shadowOf(subject)
-        shadowActivity.grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION);
+        shadowSubject = shadowOf(subject)
 
-        subject.onMapReady(mockMap)
     }
 
     @Test
-    fun location_gets_enabled() {
+    fun locationGetsEnabled_ifPermissionsAreGranted() {
+        shadowSubject.grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        subject.onMapReady(mockMap)
         verify { mockMap.isMyLocationEnabled = true }
+    }
+
+    @Test
+    fun defaultsToPivotal_ifPermissionsAreDenied() {
+        shadowSubject.denyPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        subject.onMapReady(mockMap)
+
+        verify(exactly = 0) { mockMap.isMyLocationEnabled = true }
+        //verify { mockMap.animateCamera() }
     }
 }
