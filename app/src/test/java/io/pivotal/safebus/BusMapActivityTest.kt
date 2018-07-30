@@ -5,6 +5,7 @@ import com.google.android.gms.maps.GoogleMap
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.MockK
 import io.mockk.verify
+import io.pivotal.safebus.api.SafeBusService
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,6 +22,9 @@ class BusMapActivityTest {
 
     @MockK
     lateinit var mockMap: GoogleMap
+
+    //@MockK
+    //lateinit var mockBusService: SafeBusService
 
     @Before
     fun setup() {
@@ -44,6 +48,16 @@ class BusMapActivityTest {
         subject.onMapReady(mockMap)
 
         verify(exactly = 0) { mockMap.isMyLocationEnabled = true }
-        //verify { mockMap.animateCamera() }
+    }
+
+    @Test
+    fun serviceCalledWithCurrentLocation_ifPermissionsAreGranted() {
+        shadowSubject.grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+
+        //every { mockBusService.findBusStops() } returns ArrayList()
+
+        subject.onMapReady(mockMap)
+
+        //verify { mockBusService.findBusStops(...) }
     }
 }
