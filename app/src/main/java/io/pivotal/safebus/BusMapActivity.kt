@@ -12,10 +12,8 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import io.pivotal.safebus.api.SafeBusApi
-import io.reactivex.Observable
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.functions.BiFunction
-import io.reactivex.schedulers.Schedulers
+import io.reactivex.Single
+import io.reactivex.rxkotlin.zipWith
 import io.reactivex.subjects.PublishSubject
 import org.koin.android.ext.android.inject
 
@@ -36,32 +34,28 @@ class BusMapActivity : AppCompatActivity() {
         setContentView(R.layout.activity_bus_map)
 
         val mapReady = mapEmitter.mapReady()
+        val permissions = grantedPermission.firstOrError()
+        val location = permissions
+                .flatMap { permission ->
+                    if (permission) {
+                        getCurrentLocation()
+                    } else {
+                        Single.just(PIVOTAL_LOCATION)
+                    }
+                }
+                .map { latLng -> CameraPosition.fromLatLngZoom(latLng, 15.0f) }
 
-        val permissions = grantedPermission
-        permissions.zipWith(mapReady, BiFunction<Boolean, SafeBusMap, Unit>{ permission, map ->
-            map.isMyLocationEnabled = permission
-        }).subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe()
+        mapReady.zipWith(location)
+                .subscribe { (map, camera) -> map.moveCamera(camera) }
 
-        val location = grantedPermission.flatMap { permission ->
-            if (permission) {
-                getCurrentLocation()
-            } else {
-                Observable.just(PIVOTAL_LOCATION)
-            }
-        }
-
-        mapReady.zipWith(location, BiFunction<SafeBusMap, LatLng, Unit> { map, latLng ->
-            map.moveCamera(CameraPosition.fromLatLngZoom(latLng, 15.0f))
-        }).subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread()).subscribe()
+        mapReady.zipWith(permissions)
+                .subscribe { (map, locationAllowed) -> map.isMyLocationEnabled = locationAllowed }
 
         checkLocationPermission()
     }
 
     @SuppressLint("MissingPermission")
-    private fun getCurrentLocation(): PublishSubject<LatLng>? {
+    private fun getCurrentLocation(): Single<LatLng>? {
         val locationStream = PublishSubject.create<LatLng>()
         locationClient.lastLocation.addOnSuccessListener { location: Location? ->
             if (location != null) {
@@ -71,7 +65,7 @@ class BusMapActivity : AppCompatActivity() {
                 locationStream.onNext(PIVOTAL_LOCATION)
             }
         }
-        return locationStream
+        return locationStream.firstOrError()
     }
 
     private fun checkLocationPermission() {

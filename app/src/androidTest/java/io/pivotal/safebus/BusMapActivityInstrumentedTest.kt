@@ -1,13 +1,10 @@
 package io.pivotal.safebus
 
 import android.Manifest
-import android.location.Location
 import android.support.test.annotation.UiThreadTest
 import android.support.test.rule.ActivityTestRule
 import android.support.test.rule.GrantPermissionRule
 import android.support.test.runner.AndroidJUnit4
-import com.google.android.gms.tasks.Task
-import com.google.android.gms.tasks.Tasks
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before

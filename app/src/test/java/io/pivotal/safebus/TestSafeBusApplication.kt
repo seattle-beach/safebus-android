@@ -3,8 +3,6 @@ package io.pivotal.safebus
 import com.google.android.gms.location.FusedLocationProviderClient
 import io.mockk.mockk
 import io.pivotal.safebus.api.SafeBusApi
-import org.junit.BeforeClass
-import org.koin.android.ext.android.startKoin
 import org.koin.dsl.module.Module
 import org.koin.standalone.StandAloneContext
 import org.robolectric.TestLifecycleApplication

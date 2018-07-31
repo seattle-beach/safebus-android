@@ -13,8 +13,6 @@ import io.mockk.verify
 import io.pivotal.safebus.api.SafeBusApi
 import io.reactivex.Observable
 import io.reactivex.Single
-import io.reactivex.subjects.BehaviorSubject
-import io.reactivex.subjects.ReplaySubject
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -42,10 +40,7 @@ class BusMapActivityTest : KoinTest {
     @Before
     fun setup() {
         MockKAnnotations.init(this, relaxUnitFun = true)
-        val foo = ReplaySubject.create<SafeBusMap>(1)
-        foo.onNext(safeBusMap)
-        foo.onComplete()
-        every { mapEmitter.mapReady() } returns Observable.just(safeBusMap)
+        every { mapEmitter.mapReady() } returns Single.just(safeBusMap)
 
         val builder = Robolectric.buildActivity(BusMapActivity::class.java)
 
@@ -67,10 +62,11 @@ class BusMapActivityTest : KoinTest {
         } returns Observable.just(ArrayList())
 
         verify { safeBusMap.isMyLocationEnabled = true }
-        verify { safeBusMap.moveCamera(CameraPosition.Builder()
-                .target(LatLng(location.latitude, location.longitude))
-                .zoom(15.0f)
-                .build())
+        verify {
+            safeBusMap.moveCamera(CameraPosition.Builder()
+                    .target(LatLng(location.latitude, location.longitude))
+                    .zoom(15.0f)
+                    .build())
         }
     }
 
