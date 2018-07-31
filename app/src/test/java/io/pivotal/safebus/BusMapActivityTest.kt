@@ -1,49 +1,118 @@
 package io.pivotal.safebus
 
 import android.Manifest
-import com.google.android.gms.maps.GoogleMap
+import android.content.pm.PackageManager
+import android.location.Location
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.tasks.Tasks
 import io.mockk.MockKAnnotations
+import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.verify
+import io.pivotal.safebus.api.SafeBusApi
+import io.reactivex.Observable
+import io.reactivex.Single
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.koin.standalone.inject
+import org.koin.test.KoinTest
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
-import org.robolectric.shadows.ShadowActivity
+import org.robolectric.android.controller.ActivityController
 
 
 @RunWith(RobolectricTestRunner::class)
-class BusMapActivityTest {
+class BusMapActivityTest : KoinTest {
     private lateinit var subject: BusMapActivity
-    private lateinit var shadowSubject: ShadowActivity
+    private var location = Location("")
+
+    val safeBusApi by inject<SafeBusApi>()
+    val locationClient by inject<FusedLocationProviderClient>()
+    val mapEmitter by inject<MapEmitter>(parameters = { emptyMap() })
 
     @MockK
-    lateinit var mockMap: GoogleMap
+    lateinit var safeBusMap: SafeBusMap
+
+    private lateinit var subjectController: ActivityController<BusMapActivity>
 
     @Before
     fun setup() {
         MockKAnnotations.init(this, relaxUnitFun = true)
+        every { mapEmitter.mapReady() } returns Single.just(safeBusMap)
 
-        subject = Robolectric.setupActivity(BusMapActivity::class.java)
-        shadowSubject = shadowOf(subject)
+        subjectController = Robolectric.buildActivity(BusMapActivity::class.java)
+        subject = subjectController.get()
 
+        location.longitude = 12.32
+        location.latitude = -122.2
+        every { locationClient.lastLocation } returns Tasks.forResult(location)
     }
 
     @Test
     fun locationGetsEnabled_ifPermissionsAreGranted() {
-        shadowSubject.grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
-        subject.onMapReady(mockMap)
-        verify { mockMap.isMyLocationEnabled = true }
+        shadowOf(subject).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        subjectController.setup()
+
+        every {
+            safeBusApi.findBusStops(any(), any(), any(), any())
+        } returns Observable.just(ArrayList())
+
+        verify { safeBusMap.isMyLocationEnabled = true }
+        verify {
+            safeBusMap.moveCamera(CameraPosition.Builder()
+                    .target(LatLng(location.latitude, location.longitude))
+                    .zoom(15.0f)
+                    .build())
+        }
     }
 
     @Test
-    fun defaultsToPivotal_ifPermissionsAreDenied() {
-        shadowSubject.denyPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
-        subject.onMapReady(mockMap)
+    fun locationNotEnabled_ifPermissionAreDenied() {
+        shadowOf(subject).denyPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        subjectController.setup()
+        subject.onRequestPermissionsResult(subject.LOCATION_PERMISSION_CODE,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                intArrayOf(PackageManager.PERMISSION_DENIED)
+        )
 
-        verify(exactly = 0) { mockMap.isMyLocationEnabled = true }
-        //verify { mockMap.animateCamera() }
+        every {
+            safeBusApi.findBusStops(any(), any(), any(), any())
+        } returns Observable.just(ArrayList())
+
+
+        verify(exactly = 0) { safeBusMap.isMyLocationEnabled = true }
+        verify(exactly = 0) { locationClient.lastLocation }
+        verify {
+            safeBusMap.moveCamera(CameraPosition.Builder()
+                    .target(LatLng(47.5989794, -122.335976))
+                    .zoom(15.0f)
+                    .build())
+        }
+    }
+
+    @Test
+    fun locationGetsEnabled_ifUserAllowsPermissions() {
+        shadowOf(subject).denyPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        subjectController.setup()
+        subject.onRequestPermissionsResult(subject.LOCATION_PERMISSION_CODE,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                intArrayOf(PackageManager.PERMISSION_GRANTED)
+        )
+
+        every {
+            safeBusApi.findBusStops(any(), any(), any(), any())
+        } returns Observable.just(ArrayList())
+
+        verify { safeBusMap.isMyLocationEnabled = true }
+        verify {
+            safeBusMap.moveCamera(CameraPosition.Builder()
+                    .target(LatLng(location.latitude, location.longitude))
+                    .zoom(15.0f)
+                    .build())
+        }
     }
 }

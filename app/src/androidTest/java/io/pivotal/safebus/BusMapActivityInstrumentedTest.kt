@@ -5,7 +5,9 @@ import android.support.test.annotation.UiThreadTest
 import android.support.test.rule.ActivityTestRule
 import android.support.test.rule.GrantPermissionRule
 import android.support.test.runner.AndroidJUnit4
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,11 +21,22 @@ class BusMapActivityInstrumentedTest {
     @get:Rule
     val permissionRule: GrantPermissionRule = GrantPermissionRule.grant(Manifest.permission.ACCESS_FINE_LOCATION)
 
-    @UiThreadTest
-    @Test
-    fun activity_starts() {
-        val myLocationEnabled = activityRule.activity.map.isMyLocationEnabled
+    lateinit var activity: BusMapActivity
 
-        assertTrue(myLocationEnabled)
+    @Before
+    fun setup() {
+        activity = activityRule.activity
+    }
+
+    @Test
+    @UiThreadTest
+    fun location_gets_enabled() {
+        assertTrue(activity.map.isMyLocationEnabled)
+    }
+
+    @Test
+    @UiThreadTest
+    fun map_is_moved() {
+        assertEquals(47.5989794, activity.map.cameraPosition.target.latitude, Double.MIN_VALUE)
     }
 }
