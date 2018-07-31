@@ -12,9 +12,12 @@ import android.util.Log
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import io.pivotal.safebus.api.BusStop
 import io.pivotal.safebus.api.SafeBusApi
+import io.reactivex.Observable
 import io.reactivex.Scheduler
 import io.reactivex.Single
+import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.rxkotlin.zipWith
 import io.reactivex.subjects.BehaviorSubject
 import io.reactivex.subjects.PublishSubject
@@ -37,38 +40,23 @@ class BusMapActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_bus_map)
 
+        setupMap()
+        checkLocationPermission()
+    }
+
+    private fun setupMap() {
         val mapReady = mapEmitter.mapReady()
         val permissions = grantedPermission.firstOrError()
         val cameraStream = permissions
-                .flatMap { permission ->
-                    if (permission) {
-                        getCurrentLocation()
-                    } else {
-                        Single.just(PIVOTAL_LOCATION)
-                    }
-                }
+                .flatMap(this::getCurrentOrDefaultLocation)
                 .map { latLng -> CameraPosition.fromLatLngZoom(latLng, 15.0f) }
 
         mapEmitter.cameraIdle()
-                .flatMap { map ->
-                    this.map = map
-
-                    val center = map.latLngBounds.center
-                    val southwest = map.latLngBounds.southwest
-                    val northeast = map.latLngBounds.northeast
-                    val latSpan = northeast.latitude - southwest.latitude
-                    val lonSpan = northeast.longitude - southwest.longitude
-                    safeBusApi.findBusStops(center.latitude, center.longitude, latSpan, lonSpan)
-                            .subscribeOn(ioScheduler)
-                }
+                .flatMap(this::fetchBusStopsInMap)
                 .observeOn(uiScheduler)
-                .subscribe(
-                        { busStops ->
-                            busStops.forEach(map::addBusStop)
-                        },
-                        { error ->
-                            Log.e("BusMapActivity", error.toString())
-                        }
+                .subscribeBy(
+                        onNext = { busStops -> map.markerOverlay.addStops(busStops) },
+                        onError = { error -> Log.e("BusMapActivity", error.toString()) }
                 )
 
         mapReady.zipWith(cameraStream)
@@ -76,8 +64,26 @@ class BusMapActivity : AppCompatActivity() {
 
         mapReady.zipWith(permissions)
                 .subscribe { (map, locationAllowed) -> map.isMyLocationEnabled = locationAllowed }
+    }
 
-        checkLocationPermission()
+    private fun getCurrentOrDefaultLocation(permission: Boolean): Single<LatLng> {
+        return if (permission) {
+            getCurrentLocation()
+        } else {
+            Single.just(PIVOTAL_LOCATION)
+        }
+    }
+
+    private fun fetchBusStopsInMap(map: SafeBusMap): Observable<List<BusStop>> {
+        this.map = map
+
+        val center = map.latLngBounds.center
+        val southwest = map.latLngBounds.southwest
+        val northeast = map.latLngBounds.northeast
+        val latSpan = northeast.latitude - southwest.latitude
+        val lonSpan = northeast.longitude - southwest.longitude
+        return safeBusApi.findBusStops(center.latitude, center.longitude, latSpan, lonSpan)
+                .subscribeOn(ioScheduler)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

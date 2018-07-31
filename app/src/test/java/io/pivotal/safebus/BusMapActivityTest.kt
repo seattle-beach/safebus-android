@@ -11,6 +11,7 @@ import com.google.android.gms.tasks.Tasks
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
+import io.mockk.mockk
 import io.mockk.verify
 import io.pivotal.safebus.api.BusStop
 import io.pivotal.safebus.api.SafeBusApi
@@ -36,11 +37,11 @@ class BusMapActivityTest : KoinTest {
     private var location = Location("")
     private lateinit var mapIdleStream: BehaviorSubject<SafeBusMap>
 
-    val safeBusApi by inject<SafeBusApi>()
-    val locationClient by inject<FusedLocationProviderClient>()
-    val mapEmitter by inject<MapEmitter>(parameters = { emptyMap() })
-    val ioScheduler by inject<Scheduler>("io")
-    val uiScheduler by inject<Scheduler>("ui")
+    private val safeBusApi by inject<SafeBusApi>()
+    private val locationClient by inject<FusedLocationProviderClient>()
+    private val mapEmitter by inject<MapEmitter>(parameters = { emptyMap() })
+    private val ioScheduler by inject<Scheduler>("io")
+    private val uiScheduler by inject<Scheduler>("ui")
 
     @MockK
     lateinit var safeBusMap: SafeBusMap
@@ -54,6 +55,7 @@ class BusMapActivityTest : KoinTest {
 
         every { mapEmitter.mapReady() } returns Single.just(safeBusMap)
         every { mapEmitter.cameraIdle() } returns mapIdleStream
+        every { safeBusMap.markerOverlay } returns mockk(relaxUnitFun = true)
 
         subjectController = Robolectric.buildActivity(BusMapActivity::class.java)
         subject = subjectController.get()
@@ -65,10 +67,10 @@ class BusMapActivityTest : KoinTest {
 
     @Test
     fun locationGetsEnabled_ifPermissionsAreGranted() {
-        val busStop = BusStop("S Jackson St & Occidental Ave Walk", 47.599274, -122.333282)
+        val busStops = listOf(BusStop("S Jackson St & Occidental Ave Walk", 47.599274, -122.333282))
         every {
             safeBusApi.findBusStops(any(), any(), any(), any())
-        } returns Observable.just(listOf(busStop))
+        } returns Observable.just(busStops)
 
         every { safeBusMap.latLngBounds } returns LatLngBounds(
                 LatLng(location.latitude - 0.015, location.longitude - 0.01),
@@ -95,9 +97,11 @@ class BusMapActivityTest : KoinTest {
                     range(0.02 - 0.0000001, 0.02 + 0.0000001)
             )
         }
+
         verify { safeBusMap.isMyLocationEnabled = true }
         verify { safeBusMap.moveCamera(position) }
-        verify { safeBusMap.addBusStop(busStop) }
+        val overlay = safeBusMap.markerOverlay
+        verify { overlay.addStops(busStops) }
     }
 
     @Test

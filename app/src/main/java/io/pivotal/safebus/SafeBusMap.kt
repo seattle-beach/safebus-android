@@ -3,10 +3,7 @@ package io.pivotal.safebus
 import android.annotation.SuppressLint
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
-import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.*
 import io.pivotal.safebus.api.BusStop
 
 class SafeBusMap(val map: GoogleMap) {
@@ -24,16 +21,15 @@ class SafeBusMap(val map: GoogleMap) {
     val latLngBounds: LatLngBounds
         get() = this.map.projection.visibleRegion.latLngBounds
 
+    val markerOverlay = MarkerOverlay(this)
+
     fun moveCamera(position: CameraPosition) {
         val cameraUpdate = CameraUpdateFactory.newCameraPosition(position)
         this.map.animateCamera(cameraUpdate)
     }
 
-    fun addBusStop(busStop: BusStop) {
-        map.addMarker(
-                MarkerOptions()
-                        .position(LatLng(busStop.lat, busStop.lon))
-                        .title(busStop.name)
-        )
-    }
+    fun addMarker(busStop: BusStop): Marker = map.addMarker(MarkerOptions()
+            .position(LatLng(busStop.lat, busStop.lon))
+            .title(busStop.name)
+    )
 }
