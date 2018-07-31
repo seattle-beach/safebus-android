@@ -52,8 +52,13 @@ class BusMapActivity : AppCompatActivity() {
         mapEmitter.cameraIdle()
                 .flatMap { map ->
                     this.map = map
-                    val target = map.cameraPosition.target
-                    safeBusApi.findBusStops(target.latitude, target.longitude, 0.01, 0.01)
+
+                    val center = map.latLngBounds.center
+                    val southwest = map.latLngBounds.southwest
+                    val northeast = map.latLngBounds.northeast
+                    val latSpan = northeast.latitude - southwest.latitude
+                    val lonSpan = northeast.longitude - southwest.longitude
+                    safeBusApi.findBusStops(center.latitude, center.longitude, latSpan, lonSpan)
                             .subscribeOn(ioScheduler)
                 }
                 .observeOn(uiScheduler)

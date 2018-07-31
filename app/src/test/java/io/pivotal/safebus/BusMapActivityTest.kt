@@ -6,6 +6,7 @@ import android.location.Location
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.tasks.Tasks
 import io.mockk.MockKAnnotations
 import io.mockk.every
@@ -66,8 +67,13 @@ class BusMapActivityTest : KoinTest {
     fun locationGetsEnabled_ifPermissionsAreGranted() {
         val busStop = BusStop("S Jackson St & Occidental Ave Walk", 47.599274, -122.333282)
         every {
-            safeBusApi.findBusStops(location.latitude, location.longitude, 0.01, 0.01)
+            safeBusApi.findBusStops(any(), any(), any(), any())
         } returns Observable.just(listOf(busStop))
+
+        every { safeBusMap.latLngBounds } returns LatLngBounds(
+                LatLng(location.latitude - 0.015, location.longitude - 0.01),
+                LatLng(location.latitude + 0.015, location.longitude + 0.01)
+        )
 
         shadowOf(subject).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
         subjectController.setup()
@@ -76,12 +82,19 @@ class BusMapActivityTest : KoinTest {
                 .zoom(15.0f)
                 .build()
 
-        every { safeBusMap.cameraPosition } returns position
         mapIdleStream.onNext(safeBusMap)
 
         (ioScheduler as TestScheduler).triggerActions()
         (uiScheduler as TestScheduler).triggerActions()
 
+        verify {
+            safeBusApi.findBusStops(
+                    location.latitude,
+                    location.longitude,
+                    range(0.03 - 0.0000001, 0.03 + 0.0000001),
+                    range(0.02 - 0.0000001, 0.02 + 0.0000001)
+            )
+        }
         verify { safeBusMap.isMyLocationEnabled = true }
         verify { safeBusMap.moveCamera(position) }
         verify { safeBusMap.addBusStop(busStop) }
