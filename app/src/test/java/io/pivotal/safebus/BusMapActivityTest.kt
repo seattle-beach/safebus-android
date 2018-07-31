@@ -12,7 +12,9 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.verify
 import io.pivotal.safebus.api.SafeBusApi
 import io.reactivex.Observable
+import io.reactivex.Single
 import io.reactivex.subjects.BehaviorSubject
+import io.reactivex.subjects.ReplaySubject
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,7 +30,7 @@ import org.robolectric.shadows.ShadowActivity
 class BusMapActivityTest : KoinTest {
     private lateinit var subject: BusMapActivity
     private lateinit var shadowSubject: ShadowActivity
-    private lateinit var mapSubject: BehaviorSubject<SafeBusMap>
+    private var location = Location("")
 
     val safeBusApi by inject<SafeBusApi>()
     val locationClient by inject<FusedLocationProviderClient>()
@@ -40,25 +42,29 @@ class BusMapActivityTest : KoinTest {
     @Before
     fun setup() {
         MockKAnnotations.init(this, relaxUnitFun = true)
-        mapSubject = BehaviorSubject.create()
-        every { mapEmitter.mapReady() } returns mapSubject
+        val foo = ReplaySubject.create<SafeBusMap>(1)
+        foo.onNext(safeBusMap)
+        foo.onComplete()
+        every { mapEmitter.mapReady() } returns Observable.just(safeBusMap)
 
-        subject = Robolectric.setupActivity(BusMapActivity::class.java)
-        shadowSubject = shadowOf(subject)
+        val builder = Robolectric.buildActivity(BusMapActivity::class.java)
+
+        shadowSubject = shadowOf(builder.get())
+        shadowSubject.grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+
+        location.longitude = 12.32
+        location.latitude = -122.2
+        every { locationClient.lastLocation } returns Tasks.forResult(location)
+
+        subject = builder.setup().get()
     }
 
     @Test
     fun locationGetsEnabled_ifPermissionsAreGranted() {
-        val location = Location("")
-        location.longitude = 12.32
-        location.latitude = -122.2
-        every { locationClient.lastLocation } returns Tasks.forResult(location)
+
         every {
             safeBusApi.findBusStops(any(), any(), any(), any())
         } returns Observable.just(ArrayList())
-
-        shadowSubject.grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
-        mapSubject.onNext(safeBusMap)
 
         verify { safeBusMap.isMyLocationEnabled = true }
         verify { safeBusMap.moveCamera(CameraPosition.Builder()
@@ -75,9 +81,9 @@ class BusMapActivityTest : KoinTest {
         } returns Observable.just(ArrayList())
 
         shadowSubject.denyPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
-        mapSubject.onNext(safeBusMap)
 
         verify(exactly = 0) { safeBusMap.isMyLocationEnabled = true }
+        verify(exactly = 0) { locationClient.lastLocation }
 //        verify { safeBusMap.moveCamera(CameraPosition.Builder()
 //                .target(LatLng(47.5989794, -122.335976))
 //                .zoom(15.0f)

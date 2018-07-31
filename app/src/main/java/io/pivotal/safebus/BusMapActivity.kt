@@ -12,8 +12,11 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import io.pivotal.safebus.api.SafeBusApi
+import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.functions.BiFunction
 import io.reactivex.schedulers.Schedulers
+import io.reactivex.subjects.PublishSubject
 import org.koin.android.ext.android.inject
 
 class BusMapActivity : AppCompatActivity() {
@@ -21,6 +24,7 @@ class BusMapActivity : AppCompatActivity() {
 
     private val LOCATION_PERMISSION_CODE = 0
     private val PIVOTAL_LOCATION = LatLng(47.5989794, -122.335976)
+    private val grantedPermission = PublishSubject.create<Boolean>()
 
     lateinit var map: SafeBusMap
     val safeBusApi by inject<SafeBusApi>()
@@ -31,20 +35,55 @@ class BusMapActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_bus_map)
 
+        val mapReady = mapEmitter.mapReady()
 
-        mapEmitter.mapReady().subscribe({ t: SafeBusMap ->
-            map = t
+        val permissions = grantedPermission
+        permissions.zipWith(mapReady, BiFunction<Boolean, SafeBusMap, Unit>{ permission, map ->
+            map.isMyLocationEnabled = permission
+        }).subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe()
 
-            val hasPermission = (ContextCompat.checkSelfPermission(this,
-                    Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
-
-            if (hasPermission) {
-                enableLocation()
+        val location = grantedPermission.flatMap { permission ->
+            if (permission) {
+                getCurrentLocation()
             } else {
-                ActivityCompat.requestPermissions(this,
-                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_CODE)
+                Observable.just(PIVOTAL_LOCATION)
             }
-        })
+        }
+
+        mapReady.zipWith(location, BiFunction<SafeBusMap, LatLng, Unit> { map, latLng ->
+            map.moveCamera(CameraPosition.fromLatLngZoom(latLng, 15.0f))
+        }).subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread()).subscribe()
+
+        checkLocationPermission()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun getCurrentLocation(): PublishSubject<LatLng>? {
+        val locationStream = PublishSubject.create<LatLng>()
+        locationClient.lastLocation.addOnSuccessListener { location: Location? ->
+            if (location != null) {
+                val latlng = LatLng(location.latitude, location.longitude)
+                locationStream.onNext(latlng)
+            } else {
+                locationStream.onNext(PIVOTAL_LOCATION)
+            }
+        }
+        return locationStream
+    }
+
+    private fun checkLocationPermission() {
+        val hasPermission = (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+
+        if (!hasPermission) {
+            ActivityCompat.requestPermissions(this,
+                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_CODE)
+        } else {
+            grantedPermission.onNext(true)
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -55,63 +94,8 @@ class BusMapActivity : AppCompatActivity() {
                         permission == Manifest.permission.ACCESS_FINE_LOCATION &&
                                 result == PackageManager.PERMISSION_GRANTED
                     }
-            if (grantedLocationPermission) {
-                enableLocation()
-            } else {
-                updateCamera(PIVOTAL_LOCATION)
-            }
+
+            grantedPermission.onNext(grantedLocationPermission)
         }
     }
-
-    @SuppressLint("MissingPermission")
-    private fun enableLocation() {
-        map.isMyLocationEnabled = true
-        locationClient.lastLocation
-                .addOnSuccessListener { location: Location? ->
-                    markBusStopsOnMap()
-                    if (location != null) {
-                        val latlng = LatLng(location.latitude, location.longitude)
-                        updateCamera(latlng)
-                    } else {
-                        updateCamera(PIVOTAL_LOCATION)
-                    }
-                }
-    }
-
-    fun updateCamera(latlng: LatLng) {
-        map.moveCamera(CameraPosition.builder()
-                .target(latlng)
-                .zoom(15.0f)
-                .build())
-    }
-
-    private fun markBusStopsOnMap() {
-        safeBusApi.findBusStops(47.5989794, -122.335976, 0.01, 0.01)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({ stops ->
-                    System.out.println("GOT HERE WITH STOPS:" + stops.toString())
-                })
-//        // Instantiate the RequestQueue.
-//        val queue = Volley.newRequestQueue(this)
-//        val url = "https://safebus.cfapps.io/api/bus_stops?lat=47.5989794&lon=-122.335976&lat_span=0.01&lon_span=0.01"
-//
-//        val jsonObjectRequest = JsonArrayRequest(Request.Method.GET, url, null,
-//                Response.Listener { response ->
-//
-//                    for (i in 0..(response.length() - 1)) {
-//                        val stop = response.getJSONObject(i)
-//
-//                        val latLng = LatLng(stop.getDouble("lat"), stop.getDouble("lon"))
-//
-//                        map.addMarker(MarkerOptions().position(latLng)
-//                                .title(stop.getString("name")))
-//                    }
-//                },
-//                Response.ErrorListener {
-//                    Log.e(TAG, "failed to call service")
-//                })
-//        queue.add(jsonObjectRequest)
-    }
-
 }
