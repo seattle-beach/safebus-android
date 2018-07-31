@@ -8,10 +8,12 @@ import android.os.Bundle
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
+import android.util.Log
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import io.pivotal.safebus.api.SafeBusApi
+import io.reactivex.Scheduler
 import io.reactivex.Single
 import io.reactivex.rxkotlin.zipWith
 import io.reactivex.subjects.BehaviorSubject
@@ -28,6 +30,8 @@ class BusMapActivity : AppCompatActivity() {
     val safeBusApi by inject<SafeBusApi>()
     val locationClient by inject<FusedLocationProviderClient>()
     val mapEmitter by inject<MapEmitter>(parameters = { mapOf("activity" to this) })
+    val ioScheduler by inject<Scheduler>("io")
+    val uiScheduler by inject<Scheduler>("ui")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,6 +48,23 @@ class BusMapActivity : AppCompatActivity() {
                     }
                 }
                 .map { latLng -> CameraPosition.fromLatLngZoom(latLng, 15.0f) }
+
+        mapEmitter.cameraIdle()
+                .flatMap { map ->
+                    this.map = map
+                    val target = map.cameraPosition.target
+                    safeBusApi.findBusStops(target.latitude, target.longitude, 0.01, 0.01)
+                            .subscribeOn(ioScheduler)
+                }
+                .observeOn(uiScheduler)
+                .subscribe(
+                        { busStops ->
+                            busStops.forEach(map::addBusStop)
+                        },
+                        { error ->
+                            Log.e("BusMapActivity", error.toString())
+                        }
+                )
 
         mapReady.zipWith(cameraStream)
                 .subscribe { (map, camera) -> map.moveCamera(camera) }

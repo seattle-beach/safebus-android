@@ -4,6 +4,8 @@ import android.app.Application
 import com.google.android.gms.location.LocationServices
 import com.jakewharton.retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
 import io.pivotal.safebus.api.SafeBusApi
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.schedulers.Schedulers
 import org.koin.android.ext.android.startKoin
 import org.koin.dsl.module.Module
 import org.koin.dsl.module.applicationContext
@@ -23,6 +25,8 @@ open class SafeBusApplication : Application() {
         }
         bean { LocationServices.getFusedLocationProviderClient(applicationContext) }
         bean { params -> MapEmitter(params["activity"]) }
+        factory("ui") { AndroidSchedulers.mainThread() }
+        factory("io") { Schedulers.io() }
     }
 
     override fun onCreate() {

@@ -1,5 +1,3 @@
 package io.pivotal.safebus.api
 
-class BusStop {
-
-}
+data class BusStop(val name: String, val lat: Double, val lon: Double)
