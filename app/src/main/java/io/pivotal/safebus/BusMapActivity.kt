@@ -50,7 +50,7 @@ class BusMapActivity : AppCompatActivity() {
         val permissions = grantedPermission.firstOrError()
         val cameraStream = permissions
                 .flatMap(this::getCurrentOrDefaultLocation)
-                .map { latLng -> CameraPosition.fromLatLngZoom(latLng, 15.0f) }
+                .map { latLng -> CameraPosition.fromLatLngZoom(latLng, 16.0f) }
 
         mapEmitter.cameraIdle()
                 .flatMap(this::fetchBusStopsInMap)

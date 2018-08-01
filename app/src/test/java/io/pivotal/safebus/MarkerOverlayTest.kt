@@ -26,6 +26,7 @@ class MarkerOverlayTest {
             val stop = slot.captured
             every { marker.position } returns LatLng(stop.lat, stop.lon)
             every { marker.title } returns stop.name
+            every { marker.isInfoWindowShown } returns false
             capturedMarkers[marker.title] = marker
             marker
         }
@@ -86,5 +87,51 @@ class MarkerOverlayTest {
         verify { capturedMarkers[secondBusStop.name]?.remove() }
         verify(exactly = 1) { safeBusMap.addMarker(thirdBusStop) }
         verify(exactly = 1) { safeBusMap.addMarker(fourthBusStop) }
+    }
+
+    @Test
+    fun does_not_remove_selected_marker() {
+        val subject = MarkerOverlay(safeBusMap, 1)
+
+        val firstBusStop = BusStop("James St. 1", 48.599274, -122.333282)
+        val secondBusStop = BusStop("James St. 2", 50.599274, -122.333282)
+
+        subject.addStops(listOf(firstBusStop))
+        every { capturedMarkers[firstBusStop.name]?.isInfoWindowShown } returns true
+        subject.addStops(listOf(secondBusStop))
+
+        verify(exactly = 0) { capturedMarkers[firstBusStop.name]?.remove() }
+        verify(exactly = 1) { safeBusMap.addMarker(secondBusStop) }
+    }
+
+    @Test
+    fun adding_duplicate_does_not_count_towards_limit() {
+        val subject = MarkerOverlay(safeBusMap, 3)
+
+        val firstBusStop = BusStop("James St. 1", 48.599274, -122.333282)
+        val secondBusStop = BusStop("James St. 2", 50.599274, -122.333282)
+        val thirdBusStop = BusStop("James St. 3", 51.599274, -122.333282)
+
+        subject.addStops(listOf(firstBusStop, secondBusStop))
+        subject.addStops(listOf(secondBusStop, thirdBusStop))
+
+        verify(exactly = 0) { capturedMarkers[firstBusStop.name]?.remove() }
+        verify(exactly = 0) { capturedMarkers[secondBusStop.name]?.remove() }
+        verify(exactly = 0) { capturedMarkers[thirdBusStop.name]?.remove() }
+    }
+
+    @Test
+    fun does_not_remove_markers_that_will_be_displayed() {
+        val subject = MarkerOverlay(safeBusMap, 2)
+
+        val firstBusStop = BusStop("James St. 1", 48.599274, -122.333282)
+        val secondBusStop = BusStop("James St. 2", 50.599274, -122.333282)
+        val thirdBusStop = BusStop("James St. 3", 51.599274, -122.333282)
+
+        subject.addStops(listOf(firstBusStop, secondBusStop))
+        subject.addStops(listOf(firstBusStop, thirdBusStop))
+
+        verify(exactly = 0) { capturedMarkers[firstBusStop.name]?.remove() }
+        verify(exactly = 1) { capturedMarkers[secondBusStop.name]?.remove() }
     }
 }

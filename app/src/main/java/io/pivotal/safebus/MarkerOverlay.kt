@@ -8,24 +8,29 @@ class MarkerOverlay(val map: SafeBusMap, private val markerLimit: Int = 150) {
     private val markers: MutableSet<Marker> = HashSet()
 
     fun addStops(stops: List<BusStop>) {
-
-        if ((markers.size + stops.size) > markerLimit) {
-            markers.forEach(Marker::remove)
-            markers.clear()
-        }
-
-        val uniqueStops = stops
+        val newStops = stops
                 .filter { stop ->
-                    markers.none { marker ->
-                        marker.position.latitude == stop.lat
-                                && marker.position.longitude == stop.lon
-                                && marker.title == stop.name
-                    }
+                    markers.none { marker -> isMarkerForStop(marker, stop) }
                 }
                 .take(markerLimit)
 
-        uniqueStops.forEach { stop ->
+        if ((markers.size + newStops.size) > markerLimit) {
+            markers.filterNot { m -> shouldRetain(m, stops) }.forEach(Marker::remove)
+            markers.retainAll { m -> shouldRetain(m, stops) }
+        }
+
+        newStops.forEach { stop ->
             markers.add(map.addMarker(stop))
         }
+    }
+
+    private fun shouldRetain(marker: Marker, newStops: List<BusStop>): Boolean {
+        return marker.isInfoWindowShown || newStops.any { isMarkerForStop(marker, it) }
+    }
+
+    private fun isMarkerForStop(marker: Marker, stop: BusStop): Boolean {
+        return (marker.position.latitude == stop.lat
+                && marker.position.longitude == stop.lon
+                && marker.title == stop.name)
     }
 }

@@ -81,7 +81,7 @@ class BusMapActivityTest : KoinTest {
         subjectController.setup()
         val position = CameraPosition.Builder()
                 .target(LatLng(location.latitude, location.longitude))
-                .zoom(15.0f)
+                .zoom(16.0f)
                 .build()
 
         mapIdleStream.onNext(safeBusMap)
@@ -124,7 +124,7 @@ class BusMapActivityTest : KoinTest {
         verify {
             safeBusMap.moveCamera(CameraPosition.Builder()
                     .target(LatLng(47.5989794, -122.335976))
-                    .zoom(15.0f)
+                    .zoom(16.0f)
                     .build())
         }
     }
@@ -146,7 +146,7 @@ class BusMapActivityTest : KoinTest {
         verify {
             safeBusMap.moveCamera(CameraPosition.Builder()
                     .target(LatLng(location.latitude, location.longitude))
-                    .zoom(15.0f)
+                    .zoom(16.0f)
                     .build())
         }
     }
