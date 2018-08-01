@@ -27,6 +27,8 @@ class MapEmitter(activity: FragmentActivity) : OnMapReadyCallback, GoogleMap.OnC
 
     override fun onMapReady(map: GoogleMap) {
         map.setOnCameraIdleListener(this)
+        map.uiSettings.isRotateGesturesEnabled = false
+        map.uiSettings.isZoomControlsEnabled = true
         onMapReady.onNext(SafeBusMap(map))
     }
 

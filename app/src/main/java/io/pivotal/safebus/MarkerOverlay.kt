@@ -3,7 +3,7 @@ package io.pivotal.safebus
 import com.google.android.gms.maps.model.Marker
 import io.pivotal.safebus.api.BusStop
 
-class MarkerOverlay(val map: SafeBusMap, private val markerLimit: Int = 50) {
+class MarkerOverlay(val map: SafeBusMap, private val markerLimit: Int = 150) {
 
     private val markers: MutableSet<Marker> = HashSet()
 
