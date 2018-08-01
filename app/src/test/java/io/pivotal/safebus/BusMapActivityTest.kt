@@ -69,7 +69,7 @@ class BusMapActivityTest : KoinTest {
     fun locationGetsEnabled_ifPermissionsAreGranted() {
         val busStops = listOf(BusStop("S Jackson St & Occidental Ave Walk", 47.599274, -122.333282))
         every {
-            safeBusApi.findBusStops(any(), any(), any(), any())
+            safeBusApi.findBusStops(any(), any(), any(), any(), any())
         } returns Observable.just(busStops)
 
         every { safeBusMap.latLngBounds } returns LatLngBounds(
@@ -94,7 +94,8 @@ class BusMapActivityTest : KoinTest {
                     location.latitude,
                     location.longitude,
                     range(0.03 - 0.0000001, 0.03 + 0.0000001),
-                    range(0.02 - 0.0000001, 0.02 + 0.0000001)
+                    range(0.02 - 0.0000001, 0.02 + 0.0000001),
+                    100
             )
         }
 

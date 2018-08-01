@@ -10,6 +10,7 @@ interface SafeBusApi {
     fun findBusStops(@Query("lat") lat: Double,
                      @Query("lon") lon: Double,
                      @Query("lat_span") latSpan: Double,
-                     @Query("lon_span") lonSpan: Double):
+                     @Query("lon_span") lonSpan: Double,
+                     @Query("limit") limit: Int? = null):
             Observable<List<BusStop>>
 }

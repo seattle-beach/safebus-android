@@ -25,6 +25,7 @@ import org.koin.android.ext.android.inject
 
 class BusMapActivity : AppCompatActivity() {
     val LOCATION_PERMISSION_CODE = 0
+    private val SAFEBUS_API_LIMIT = 100
 
     private val PIVOTAL_LOCATION = LatLng(47.5989794, -122.335976)
     private val grantedPermission = PublishSubject.create<Boolean>()
@@ -82,7 +83,7 @@ class BusMapActivity : AppCompatActivity() {
         val northeast = map.latLngBounds.northeast
         val latSpan = northeast.latitude - southwest.latitude
         val lonSpan = northeast.longitude - southwest.longitude
-        return safeBusApi.findBusStops(center.latitude, center.longitude, latSpan, lonSpan)
+        return safeBusApi.findBusStops(center.latitude, center.longitude, latSpan, lonSpan, SAFEBUS_API_LIMIT)
                 .subscribeOn(ioScheduler)
     }
 
