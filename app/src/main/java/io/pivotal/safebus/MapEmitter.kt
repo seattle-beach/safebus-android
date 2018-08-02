@@ -8,7 +8,7 @@ import io.reactivex.Observable
 import io.reactivex.Single
 import io.reactivex.subjects.BehaviorSubject
 
-class MapEmitter(activity: FragmentActivity) : OnMapReadyCallback, GoogleMap.OnCameraIdleListener {
+class MapEmitter(activity: FragmentActivity, private val iconResource: BusIconResource) : OnMapReadyCallback, GoogleMap.OnCameraIdleListener {
     private val onMapReady = BehaviorSubject.create<SafeBusMap>()
     private val onCameraIdle = BehaviorSubject.create<SafeBusMap>()
 
@@ -29,7 +29,7 @@ class MapEmitter(activity: FragmentActivity) : OnMapReadyCallback, GoogleMap.OnC
         map.setOnCameraIdleListener(this)
         map.uiSettings.isRotateGesturesEnabled = false
         map.uiSettings.isZoomControlsEnabled = true
-        onMapReady.onNext(SafeBusMap(map))
+        onMapReady.onNext(SafeBusMap(map, iconResource))
     }
 
     override fun onCameraIdle() {

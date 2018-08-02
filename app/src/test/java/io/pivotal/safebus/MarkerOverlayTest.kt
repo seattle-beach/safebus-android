@@ -1,10 +1,12 @@
 package io.pivotal.safebus
 
-import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.Marker
+import com.google.android.gms.maps.model.MarkerOptions
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import io.pivotal.safebus.api.BusStop
+import io.pivotal.safebus.api.Direction
 import org.junit.Before
 import org.junit.Test
 
@@ -12,126 +14,123 @@ class MarkerOverlayTest {
 
     @MockK
     private lateinit var safeBusMap: SafeBusMap
+    @MockK
+    private lateinit var iconResource: BusIconResource
 
     private lateinit var capturedMarkers: MutableMap<String, Marker>
+    private lateinit var capturedIcons: MutableMap<Direction, BitmapDescriptor>
+
+
+    private lateinit var subject: MarkerOverlay
+
+    private val northStop = BusStop("James St. 1", 47.599274, -122.333282, Direction.NORTH)
+    private val southStop = BusStop("James St. 2", 48.599274, -122.333282, Direction.SOUTH)
+    private val eastStop = BusStop("James St. 3", 49.599274, -122.333282, Direction.EAST)
+    private val noDirectionStop = BusStop("James St. 4", 50.599274, -122.333282, Direction.NONE)
+
+    private fun MockKVerificationScope.markerStopMatcher(firstStop: BusStop): MarkerOptions =
+            match { m -> m.isMarkerForStop(firstStop) }
+
+    private fun MarkerOptions.isMarkerForStop(stop: BusStop): Boolean {
+        return this.position.latitude == stop.lat
+                && this.position.longitude == stop.lon
+                && this.title == stop.name
+                && this.icon == capturedIcons[stop.direction]
+                && this.icon != null
+    }
 
     @Before
     fun setup() {
         MockKAnnotations.init(this, relaxUnitFun = true)
         capturedMarkers = HashMap()
+        capturedIcons = HashMap()
 
-        val slot = slot<BusStop>()
-        every { safeBusMap.addMarker(capture(slot)) } answers {
+        val markerCapture = slot<MarkerOptions>()
+        every { safeBusMap.addMarker(capture(markerCapture)) } answers {
             val marker = mockk<Marker>(relaxUnitFun = true)
-            val stop = slot.captured
-            every { marker.position } returns LatLng(stop.lat, stop.lon)
-            every { marker.title } returns stop.name
+            val options = markerCapture.captured
+            every { marker.position } returns options.position
+            every { marker.title } returns options.title
             every { marker.isInfoWindowShown } returns false
             capturedMarkers[marker.title] = marker
             marker
         }
+
+        val directionCapture = slot<Direction>()
+        every { iconResource.getIcon(capture(directionCapture)) } answers {
+            val bitmap = mockk<BitmapDescriptor>()
+            capturedIcons[directionCapture.captured] = bitmap
+            bitmap
+        }
+
+        subject = MarkerOverlay(safeBusMap, iconResource, 2)
     }
 
     @Test
     fun adds_stops() {
-        val subject = MarkerOverlay(safeBusMap)
+        subject.addStops(listOf(northStop, southStop))
 
-        val firstStop = BusStop("James St.", 47.599274, -122.333282)
-        val secondStop = BusStop("Madison St.", 45.599274, -121.333282)
-        subject.addStops(listOf(firstStop, secondStop))
-
-        verify { safeBusMap.addMarker(firstStop) }
-        verify { safeBusMap.addMarker(secondStop) }
+        verify { safeBusMap.addMarker(markerStopMatcher(northStop)) }
+        verify { safeBusMap.addMarker(markerStopMatcher(southStop)) }
     }
 
     @Test
     fun does_not_add_repeats() {
-        val subject = MarkerOverlay(safeBusMap)
+        subject.addStops(listOf(northStop))
+        subject.addStops(listOf(southStop, northStop))
 
-        val firstStop = BusStop("James St.", 47.599274, -122.333282)
-        subject.addStops(listOf(firstStop))
-        val secondStop = BusStop("Madison St.", 45.599274, -121.333282)
-        subject.addStops(listOf(secondStop, firstStop))
-
-        verify(exactly = 1) { safeBusMap.addMarker(firstStop) }
-        verify(exactly = 1) { safeBusMap.addMarker(secondStop) }
+        verify(exactly = 1) { safeBusMap.addMarker(markerStopMatcher(northStop)) }
+        verify(exactly = 1) { safeBusMap.addMarker(markerStopMatcher(southStop)) }
     }
 
     @Test
     fun limits_number_of_stops_added_at_once() {
-        val subject = MarkerOverlay(safeBusMap, 3)
+        subject.addStops(listOf(northStop, southStop, eastStop))
 
-        subject.addStops(listOf(
-                BusStop("James St. 1", 47.599274, -122.333282),
-                BusStop("James St. 2", 48.599274, -122.333282),
-                BusStop("James St. 3", 49.599274, -122.333282),
-                BusStop("James St. 4", 50.599274, -122.333282)
-        ))
-
-        verify(exactly = 3) { safeBusMap.addMarker(any()) }
+        verify(exactly = 2) { safeBusMap.addMarker(any()) }
     }
 
     @Test
     fun limits_number_of_stops_added_over_many_times() {
-        val subject = MarkerOverlay(safeBusMap, 2)
+        subject.addStops(listOf(northStop, southStop))
+        subject.addStops(listOf(eastStop, noDirectionStop))
 
-        val firstBusStop = BusStop("James St. 1", 48.599274, -122.333282)
-        val secondBusStop = BusStop("James St. 2", 50.599274, -122.333282)
-        val thirdBusStop = BusStop("James St. 3", 47.599274, -122.333282)
-        val fourthBusStop = BusStop("James St. 4", 49.599274, -122.333282)
-
-        subject.addStops(listOf(firstBusStop, secondBusStop))
-        subject.addStops(listOf(thirdBusStop, fourthBusStop))
-
-        verify { capturedMarkers[firstBusStop.name]?.remove() }
-        verify { capturedMarkers[secondBusStop.name]?.remove() }
-        verify(exactly = 1) { safeBusMap.addMarker(thirdBusStop) }
-        verify(exactly = 1) { safeBusMap.addMarker(fourthBusStop) }
+        verify { capturedMarkers[northStop.name]?.remove() }
+        verify { capturedMarkers[southStop.name]?.remove() }
+        verify(exactly = 1) { safeBusMap.addMarker(markerStopMatcher(northStop)) }
+        verify(exactly = 1) { safeBusMap.addMarker(markerStopMatcher(noDirectionStop)) }
     }
 
     @Test
     fun does_not_remove_selected_marker() {
-        val subject = MarkerOverlay(safeBusMap, 1)
+        val subject = MarkerOverlay(safeBusMap, iconResource, 1)
 
-        val firstBusStop = BusStop("James St. 1", 48.599274, -122.333282)
-        val secondBusStop = BusStop("James St. 2", 50.599274, -122.333282)
+        subject.addStops(listOf(northStop))
+        every { capturedMarkers[northStop.name]?.isInfoWindowShown } returns true
+        subject.addStops(listOf(southStop))
 
-        subject.addStops(listOf(firstBusStop))
-        every { capturedMarkers[firstBusStop.name]?.isInfoWindowShown } returns true
-        subject.addStops(listOf(secondBusStop))
-
-        verify(exactly = 0) { capturedMarkers[firstBusStop.name]?.remove() }
-        verify(exactly = 1) { safeBusMap.addMarker(secondBusStop) }
+        verify(exactly = 0) { capturedMarkers[northStop.name]?.remove() }
+        verify(exactly = 1) { safeBusMap.addMarker(markerStopMatcher(southStop)) }
     }
 
     @Test
     fun adding_duplicate_does_not_count_towards_limit() {
-        val subject = MarkerOverlay(safeBusMap, 3)
+        val subject = MarkerOverlay(safeBusMap, iconResource, 3)
 
-        val firstBusStop = BusStop("James St. 1", 48.599274, -122.333282)
-        val secondBusStop = BusStop("James St. 2", 50.599274, -122.333282)
-        val thirdBusStop = BusStop("James St. 3", 51.599274, -122.333282)
+        subject.addStops(listOf(northStop, southStop))
+        subject.addStops(listOf(southStop, eastStop))
 
-        subject.addStops(listOf(firstBusStop, secondBusStop))
-        subject.addStops(listOf(secondBusStop, thirdBusStop))
-
-        verify(exactly = 0) { capturedMarkers[firstBusStop.name]?.remove() }
-        verify(exactly = 0) { capturedMarkers[secondBusStop.name]?.remove() }
-        verify(exactly = 0) { capturedMarkers[thirdBusStop.name]?.remove() }
+        verify(exactly = 0) { capturedMarkers[northStop.name]?.remove() }
+        verify(exactly = 0) { capturedMarkers[southStop.name]?.remove() }
+        verify(exactly = 0) { capturedMarkers[eastStop.name]?.remove() }
     }
 
     @Test
     fun does_not_remove_markers_that_will_be_displayed() {
-        val subject = MarkerOverlay(safeBusMap, 2)
+        subject.addStops(listOf(northStop, southStop))
+        subject.addStops(listOf(northStop, eastStop))
 
-        val firstBusStop = BusStop("James St. 1", 48.599274, -122.333282)
-        val secondBusStop = BusStop("James St. 2", 50.599274, -122.333282)
-        val thirdBusStop = BusStop("James St. 3", 51.599274, -122.333282)
-
-        subject.addStops(listOf(firstBusStop, secondBusStop))
-        subject.addStops(listOf(firstBusStop, thirdBusStop))
-
-        verify(exactly = 0) { capturedMarkers[firstBusStop.name]?.remove() }
-        verify(exactly = 1) { capturedMarkers[secondBusStop.name]?.remove() }
+        verify(exactly = 0) { capturedMarkers[northStop.name]?.remove() }
+        verify(exactly = 1) { capturedMarkers[southStop.name]?.remove() }
     }
 }

@@ -1,9 +1,13 @@
 package io.pivotal.safebus
 
+import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
+import com.google.android.gms.maps.model.MarkerOptions
 import io.pivotal.safebus.api.BusStop
 
-class MarkerOverlay(val map: SafeBusMap, private val markerLimit: Int = 150) {
+class MarkerOverlay(private val map: SafeBusMap,
+                    private val iconResource: BusIconResource,
+                    private val markerLimit: Int = 150) {
 
     private val markers: MutableSet<Marker> = HashSet()
 
@@ -20,7 +24,10 @@ class MarkerOverlay(val map: SafeBusMap, private val markerLimit: Int = 150) {
         }
 
         newStops.forEach { stop ->
-            markers.add(map.addMarker(stop))
+            markers.add(map.addMarker(MarkerOptions()
+                    .title(stop.name)
+                    .position(LatLng(stop.lat, stop.lon))
+                    .icon(iconResource.getIcon(stop.direction))))
         }
     }
 

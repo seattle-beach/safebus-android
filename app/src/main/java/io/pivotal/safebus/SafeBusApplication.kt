@@ -24,7 +24,9 @@ open class SafeBusApplication : Application() {
                     .create(SafeBusApi::class.java)
         }
         bean { LocationServices.getFusedLocationProviderClient(applicationContext) }
-        bean { params -> MapEmitter(params["activity"]) }
+        bean { BitmapCreator(applicationContext) }
+        bean { BusIconResource(get()) }
+        bean { params -> MapEmitter(params["activity"], get()) }
         factory("ui") { AndroidSchedulers.mainThread() }
         factory("io") { Schedulers.io() }
     }

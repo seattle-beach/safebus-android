@@ -14,6 +14,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.mockk
 import io.mockk.verify
 import io.pivotal.safebus.api.BusStop
+import io.pivotal.safebus.api.Direction
 import io.pivotal.safebus.api.SafeBusApi
 import io.reactivex.Observable
 import io.reactivex.Scheduler
@@ -67,7 +68,7 @@ class BusMapActivityTest : KoinTest {
 
     @Test
     fun locationGetsEnabled_ifPermissionsAreGranted() {
-        val busStops = listOf(BusStop("S Jackson St & Occidental Ave Walk", 47.599274, -122.333282))
+        val busStops = listOf(BusStop("S Jackson St & Occidental Ave Walk", 47.599274, -122.333282, Direction.NORTH))
         every {
             safeBusApi.findBusStops(any(), any(), any(), any(), any())
         } returns Observable.just(busStops)
