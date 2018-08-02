@@ -28,6 +28,7 @@ class MapEmitter(activity: FragmentActivity, private val iconResource: BusIconRe
     override fun onMapReady(map: GoogleMap) {
         map.setOnCameraIdleListener(this)
         map.uiSettings.isRotateGesturesEnabled = false
+        map.uiSettings.isTiltGesturesEnabled = false
         map.uiSettings.isZoomControlsEnabled = true
         onMapReady.onNext(SafeBusMap(map, iconResource))
     }
