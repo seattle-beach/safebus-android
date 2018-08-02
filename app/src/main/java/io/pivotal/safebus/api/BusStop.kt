@@ -1,15 +1,17 @@
 package io.pivotal.safebus.api
 
+import com.google.gson.annotations.SerializedName
+
 data class BusStop(val name: String, val lat: Double, val lon: Double, val direction: Direction = Direction.NONE)
 
-enum class Direction(val direction: String) {
-    NORTH("N"),
-    SOUTH("S"),
-    EAST("E"),
-    WEST("W"),
-    NORTHEAST("NE"),
-    NORTHWEST("NW"),
-    SOUTHEAST("SE"),
-    SOUTHWEST("SW"),
-    NONE("")
+enum class Direction {
+    @SerializedName("N") NORTH,
+    @SerializedName("S") SOUTH,
+    @SerializedName("E") EAST,
+    @SerializedName("W") WEST,
+    @SerializedName("NE") NORTHEAST,
+    @SerializedName("NW") NORTHWEST,
+    @SerializedName("SE") SOUTHEAST,
+    @SerializedName("SW") SOUTHWEST,
+    @SerializedName("") NONE
 }
