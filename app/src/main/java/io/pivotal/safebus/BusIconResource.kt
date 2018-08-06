@@ -1,21 +1,30 @@
 package io.pivotal.safebus
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
+import android.graphics.*
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import io.pivotal.safebus.api.Direction
 
+
 class BitmapCreator(private val context: Context) {
     fun createBitmap(resource: Int): BitmapDescriptor {
         val drawable = context.getDrawable(resource)
-        val canvas = Canvas()
         val bitmap = Bitmap.createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight, Bitmap.Config.ARGB_8888)
-        canvas.setBitmap(bitmap)
+        val background = Paint()
+        val canvas = Canvas(bitmap)
+        val color = Color.rgb(135,206,235)
+        background.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_ATOP)
+        canvas.drawRoundRect(
+                0.0f,
+                0.0f,
+                drawable.intrinsicWidth.toFloat(),
+                drawable.intrinsicHeight.toFloat(),
+                drawable.intrinsicHeight.toFloat() / 6,
+                drawable.intrinsicWidth.toFloat() / 6,
+                background
+        )
         drawable.setBounds(0, 0, drawable.intrinsicWidth, drawable.intrinsicHeight)
-        drawable.setTint(Color.rgb(100, 149, 237))
         drawable.draw(canvas)
 
         return BitmapDescriptorFactory.fromBitmap(bitmap)

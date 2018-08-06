@@ -25,17 +25,18 @@ import org.koin.android.ext.android.inject
 
 class BusMapActivity : AppCompatActivity() {
     val LOCATION_PERMISSION_CODE = 0
-    private val SAFEBUS_API_LIMIT = 100
-
+    private val SAFEBUS_API_LIMIT = 50
     private val PIVOTAL_LOCATION = LatLng(47.5989794, -122.335976)
+
     private val grantedPermission = PublishSubject.create<Boolean>()
 
-    lateinit var map: SafeBusMap
-    val safeBusApi by inject<SafeBusApi>()
-    val locationClient by inject<FusedLocationProviderClient>()
-    val mapEmitter by inject<MapEmitter>(parameters = { mapOf("activity" to this) })
-    val ioScheduler by inject<Scheduler>("io")
-    val uiScheduler by inject<Scheduler>("ui")
+    private val safeBusApi by inject<SafeBusApi>()
+    private val locationClient by inject<FusedLocationProviderClient>()
+    private val mapEmitter by inject<MapEmitter>(parameters = { mapOf("activity" to this) })
+    private val ioScheduler by inject<Scheduler>("io")
+    private val uiScheduler by inject<Scheduler>("ui")
+
+    private lateinit var map: SafeBusMap
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

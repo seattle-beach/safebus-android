@@ -36,6 +36,8 @@ class MarkerOverlayTest {
                 && this.position.longitude == stop.lon
                 && this.title == stop.name
                 && this.icon == capturedIcons[stop.direction]
+                && this.anchorU == 0.5f
+                && this.anchorV == 0.5f
                 && this.icon != null
     }
 

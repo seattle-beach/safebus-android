@@ -25,6 +25,7 @@ class MarkerOverlay(private val map: SafeBusMap,
 
         newStops.forEach { stop ->
             markers.add(map.addMarker(MarkerOptions()
+                    .anchor(0.5f, 0.5f)
                     .title(stop.name)
                     .position(LatLng(stop.lat, stop.lon))
                     .icon(iconResource.getIcon(stop.direction))))
