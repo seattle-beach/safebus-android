@@ -3,7 +3,6 @@ package io.pivotal.safebus
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
-import android.location.Location
 import android.os.Bundle
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
@@ -12,6 +11,7 @@ import android.util.Log
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import io.ashdavies.rx.rxtasks.RxTasks
 import io.pivotal.safebus.api.BusStop
 import io.pivotal.safebus.api.SafeBusApi
 import io.reactivex.Observable
@@ -19,7 +19,6 @@ import io.reactivex.Scheduler
 import io.reactivex.Single
 import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.rxkotlin.zipWith
-import io.reactivex.subjects.BehaviorSubject
 import io.reactivex.subjects.PublishSubject
 import org.koin.android.ext.android.inject
 
@@ -50,7 +49,13 @@ class BusMapActivity : AppCompatActivity() {
         val mapReady = mapEmitter.mapReady()
         val permissions = grantedPermission.firstOrError()
         val cameraStream = permissions
-                .flatMap(this::getCurrentOrDefaultLocation)
+                .flatMap { allowed ->
+                    if (allowed) {
+                        getCurrentLocation().onErrorReturnItem(PIVOTAL_LOCATION)
+                    } else {
+                        Single.just(PIVOTAL_LOCATION)
+                    }
+                }
                 .map { latLng -> CameraPosition.fromLatLngZoom(latLng, 16.0f) }
 
         mapEmitter.cameraIdle()
@@ -66,14 +71,6 @@ class BusMapActivity : AppCompatActivity() {
 
         mapReady.zipWith(permissions)
                 .subscribe { (map, locationAllowed) -> map.isMyLocationEnabled = locationAllowed }
-    }
-
-    private fun getCurrentOrDefaultLocation(permission: Boolean): Single<LatLng> {
-        return if (permission) {
-            getCurrentLocation()
-        } else {
-            Single.just(PIVOTAL_LOCATION)
-        }
     }
 
     private fun fetchBusStopsInMap(map: SafeBusMap): Observable<List<BusStop>> {
@@ -103,16 +100,8 @@ class BusMapActivity : AppCompatActivity() {
 
     @SuppressLint("MissingPermission")
     private fun getCurrentLocation(): Single<LatLng> {
-        val locationStream = BehaviorSubject.create<LatLng>()
-        locationClient.lastLocation.addOnSuccessListener { location: Location? ->
-            if (location != null) {
-                val latlng = LatLng(location.latitude, location.longitude)
-                locationStream.onNext(latlng)
-            } else {
-                locationStream.onNext(PIVOTAL_LOCATION)
-            }
-        }
-        return locationStream.firstOrError()
+        return RxTasks.single(locationClient.lastLocation)
+                .map { location -> LatLng(location.latitude, location.longitude) }
     }
 
     private fun checkLocationPermission() {

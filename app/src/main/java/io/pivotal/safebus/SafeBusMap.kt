@@ -8,7 +8,7 @@ import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 
-class SafeBusMap(private val map: GoogleMap, private val iconResource: BusIconResource) {
+class SafeBusMap(private val map: GoogleMap, iconResource: BusIconResource) {
 
     var isMyLocationEnabled: Boolean
         get() = this.map.isMyLocationEnabled
@@ -27,7 +27,7 @@ class SafeBusMap(private val map: GoogleMap, private val iconResource: BusIconRe
 
     fun moveCamera(position: CameraPosition) {
         val cameraUpdate = CameraUpdateFactory.newCameraPosition(position)
-        this.map.animateCamera(cameraUpdate)
+        this.map.moveCamera(cameraUpdate)
     }
 
     fun addMarker(options: MarkerOptions): Marker = map.addMarker(options)

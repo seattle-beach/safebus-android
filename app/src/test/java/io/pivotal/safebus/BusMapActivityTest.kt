@@ -35,8 +35,12 @@ import org.robolectric.android.controller.ActivityController
 @RunWith(RobolectricTestRunner::class)
 class BusMapActivityTest : KoinTest {
     private lateinit var subject: BusMapActivity
-    private var location = Location("")
     private lateinit var mapIdleStream: BehaviorSubject<SafeBusMap>
+    private val location = Location("")
+    private val PIVOTAL_LOCATION = CameraPosition.Builder()
+            .target(LatLng(47.5989794, -122.335976))
+            .zoom(16.0f)
+            .build()
 
     private val safeBusApi by inject<SafeBusApi>()
     private val locationClient by inject<FusedLocationProviderClient>()
@@ -96,7 +100,7 @@ class BusMapActivityTest : KoinTest {
                     location.longitude,
                     range(0.03 - 0.0000001, 0.03 + 0.0000001),
                     range(0.02 - 0.0000001, 0.02 + 0.0000001),
-                    100
+                    50
             )
         }
 
@@ -107,7 +111,17 @@ class BusMapActivityTest : KoinTest {
     }
 
     @Test
-    fun locationNotEnabled_ifPermissionAreDenied() {
+    fun locationAllowed_butNoLocation_movesToPivotal() {
+        shadowOf(subject).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        every { locationClient.lastLocation } returns Tasks.forResult(null)
+
+        subjectController.setup()
+
+        verify { safeBusMap.moveCamera(PIVOTAL_LOCATION) }
+    }
+
+    @Test
+    fun locationNotAllowed_movesToPivotal() {
         shadowOf(subject).denyPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
         subjectController.setup()
         subject.onRequestPermissionsResult(subject.LOCATION_PERMISSION_CODE,
@@ -115,23 +129,13 @@ class BusMapActivityTest : KoinTest {
                 intArrayOf(PackageManager.PERMISSION_DENIED)
         )
 
-        every {
-            safeBusApi.findBusStops(any(), any(), any(), any())
-        } returns Observable.just(ArrayList())
-
-
         verify(exactly = 0) { safeBusMap.isMyLocationEnabled = true }
         verify(exactly = 0) { locationClient.lastLocation }
-        verify {
-            safeBusMap.moveCamera(CameraPosition.Builder()
-                    .target(LatLng(47.5989794, -122.335976))
-                    .zoom(16.0f)
-                    .build())
-        }
+        verify { safeBusMap.moveCamera(PIVOTAL_LOCATION) }
     }
 
     @Test
-    fun locationGetsEnabled_ifUserAllowsPermissions() {
+    fun locationNotInitiallyAllowed_movesToLocationAfterAllowed() {
         shadowOf(subject).denyPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
         subjectController.setup()
         subject.onRequestPermissionsResult(subject.LOCATION_PERMISSION_CODE,
