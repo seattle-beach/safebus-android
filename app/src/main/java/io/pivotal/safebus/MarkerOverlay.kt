@@ -25,13 +25,17 @@ class MarkerOverlay(private val map: SafeBusMap,
             markers.removeAll(extraMarkers)
         }
 
-        newStops.forEach { stop ->
-            markers.add(map.addMarker(MarkerOptions()
-                    .anchor(0.5f, 0.5f)
-                    .title(stop.name)
-                    .position(LatLng(stop.lat, stop.lon))
-                    .icon(iconResource.getIcon(stop.direction))))
-        }
+        newStops.map { stop -> stop.into() }
+                .map { markerOptions -> map.addMarker(markerOptions) }
+                .let { newMarkers -> markers.addAll(newMarkers) }
+    }
+
+    private fun BusStop.into(): MarkerOptions {
+        return MarkerOptions()
+                .anchor(0.5f, 0.5f)
+                .title(this.name)
+                .position(LatLng(this.lat, this.lon))
+                .icon(iconResource.getIcon(this.direction))
     }
 
     private fun distance(m1: Marker): Double {
