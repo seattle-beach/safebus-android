@@ -4,6 +4,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import io.pivotal.safebus.api.BusStop
+import kotlin.math.pow
 
 class MarkerOverlay(private val map: SafeBusMap,
                     private val iconResource: BusIconResource,
@@ -11,16 +12,17 @@ class MarkerOverlay(private val map: SafeBusMap,
 
     private val markers: MutableSet<Marker> = HashSet()
 
-    fun addStops(stops: List<BusStop>) {
-        val newStops = stops
-                .filter { stop ->
-                    markers.none { marker -> isMarkerForStop(marker, stop) }
-                }
-                .take(markerLimit)
+    fun addStops(stops: Iterable<BusStop>) {
+        val newStops = stops.filter(this::isNewStop).take(markerLimit)
 
-        if ((markers.size + newStops.size) > markerLimit) {
-            markers.filterNot { m -> shouldRetain(m, stops) }.forEach(Marker::remove)
-            markers.retainAll { m -> shouldRetain(m, stops) }
+        val extraMarkerCount = markers.size + newStops.size - markerLimit
+        if (extraMarkerCount > 0) {
+            val extraMarkers = markers.filterNot { m -> shouldRetain(m, stops) } // do not remove the active marker nor the new markers
+                    .sortedByDescending(this::distance) //remove the ones farther from the center first
+                    .take(extraMarkerCount) //but only remove up to the extraMarkerCount
+
+            extraMarkers.forEach(Marker::remove)
+            markers.removeAll(extraMarkers)
         }
 
         newStops.forEach { stop ->
@@ -32,7 +34,15 @@ class MarkerOverlay(private val map: SafeBusMap,
         }
     }
 
-    private fun shouldRetain(marker: Marker, newStops: List<BusStop>): Boolean {
+    private fun distance(m1: Marker): Double {
+        val marker = m1.position
+        val map = map.latLngBounds.center
+        return (marker.latitude - map.latitude).pow(2) + (marker.longitude - map.longitude).pow(2)
+    }
+
+    private fun isNewStop(stop: BusStop) = markers.none { marker -> isMarkerForStop(marker, stop) }
+
+    private fun shouldRetain(marker: Marker, newStops: Iterable<BusStop>): Boolean {
         return marker.isInfoWindowShown || newStops.any { isMarkerForStop(marker, it) }
     }
 

@@ -1,8 +1,6 @@
 package io.pivotal.safebus
 
-import com.google.android.gms.maps.model.BitmapDescriptor
-import com.google.android.gms.maps.model.Marker
-import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.*
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import io.pivotal.safebus.api.BusStop
@@ -20,13 +18,11 @@ class MarkerOverlayTest {
     private lateinit var capturedMarkers: MutableMap<String, Marker>
     private lateinit var capturedIcons: MutableMap<Direction, BitmapDescriptor>
 
-
     private lateinit var subject: MarkerOverlay
 
     private val northStop = BusStop("James St. 1", 47.599274, -122.333282, Direction.NORTH)
     private val southStop = BusStop("James St. 2", 48.599274, -122.333282, Direction.SOUTH)
-    private val eastStop = BusStop("James St. 3", 49.599274, -122.333282, Direction.EAST)
-    private val noDirectionStop = BusStop("James St. 4", 50.599274, -122.333282, Direction.NONE)
+    private val noDirectionStop = BusStop("James St. 3", 49.599274, -122.333282, Direction.NONE)
 
     private fun MockKVerificationScope.markerStopMatcher(firstStop: BusStop): MarkerOptions =
             match { m -> m.isMarkerForStop(firstStop) }
@@ -58,6 +54,8 @@ class MarkerOverlayTest {
             marker
         }
 
+        every { safeBusMap.latLngBounds } returns LatLngBounds(LatLng(47.599274, -122.333282), LatLng(48.599274, -121.333282))
+
         val directionCapture = slot<Direction>()
         every { iconResource.getIcon(capture(directionCapture)) } answers {
             val bitmap = mockk<BitmapDescriptor>()
@@ -87,20 +85,19 @@ class MarkerOverlayTest {
 
     @Test
     fun limits_number_of_stops_added_at_once() {
-        subject.addStops(listOf(northStop, southStop, eastStop))
+        subject.addStops(listOf(northStop, southStop, noDirectionStop))
 
         verify(exactly = 2) { safeBusMap.addMarker(any()) }
     }
 
     @Test
-    fun limits_number_of_stops_added_over_many_times() {
-        subject.addStops(listOf(northStop, southStop))
-        subject.addStops(listOf(eastStop, noDirectionStop))
+    fun removes_far_stops_when_limit_is_reached() {
+        subject.addStops(listOf(northStop, noDirectionStop))
+        subject.addStops(listOf(southStop))
 
-        verify { capturedMarkers[northStop.name]?.remove() }
-        verify { capturedMarkers[southStop.name]?.remove() }
-        verify(exactly = 1) { safeBusMap.addMarker(markerStopMatcher(northStop)) }
-        verify(exactly = 1) { safeBusMap.addMarker(markerStopMatcher(noDirectionStop)) }
+        verify { safeBusMap.addMarker(markerStopMatcher(southStop)) }
+        verify { capturedMarkers[noDirectionStop.name]?.remove() }
+        verify(exactly = 0) { capturedMarkers[northStop.name]?.remove() }
     }
 
     @Test
@@ -112,27 +109,23 @@ class MarkerOverlayTest {
         subject.addStops(listOf(southStop))
 
         verify(exactly = 0) { capturedMarkers[northStop.name]?.remove() }
-        verify(exactly = 1) { safeBusMap.addMarker(markerStopMatcher(southStop)) }
+        verify { safeBusMap.addMarker(markerStopMatcher(southStop)) }
     }
 
     @Test
     fun adding_duplicate_does_not_count_towards_limit() {
-        val subject = MarkerOverlay(safeBusMap, iconResource, 3)
-
+        subject.addStops(listOf(northStop))
         subject.addStops(listOf(northStop, southStop))
-        subject.addStops(listOf(southStop, eastStop))
 
         verify(exactly = 0) { capturedMarkers[northStop.name]?.remove() }
-        verify(exactly = 0) { capturedMarkers[southStop.name]?.remove() }
-        verify(exactly = 0) { capturedMarkers[eastStop.name]?.remove() }
     }
 
     @Test
     fun does_not_remove_markers_that_will_be_displayed() {
         subject.addStops(listOf(northStop, southStop))
-        subject.addStops(listOf(northStop, eastStop))
+        subject.addStops(listOf(northStop, noDirectionStop))
 
         verify(exactly = 0) { capturedMarkers[northStop.name]?.remove() }
-        verify(exactly = 1) { capturedMarkers[southStop.name]?.remove() }
+        verify { capturedMarkers[southStop.name]?.remove() }
     }
 }
