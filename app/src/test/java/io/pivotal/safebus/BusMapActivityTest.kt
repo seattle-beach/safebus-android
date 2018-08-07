@@ -47,9 +47,12 @@ class BusMapActivityTest : KoinTest {
     private val safeBusApi by inject<SafeBusApi>()
     private val locationClient by inject<FusedLocationProviderClient>()
     private val mapEmitter by inject<MapEmitter>()
-    private val ioScheduler by inject<Scheduler>("io")
-    private val uiScheduler by inject<Scheduler>("ui")
+    private val _ioScheduler by inject<Scheduler>("io")
+    private val _uiScheduler by inject<Scheduler>("ui")
     private val rxPermissions by inject<RxPermissions>()
+
+    private val ioScheduler = _ioScheduler as TestScheduler
+    private val uiScheduler = _uiScheduler as TestScheduler
 
     @MockK
     lateinit var safeBusMap: SafeBusMap
@@ -95,8 +98,8 @@ class BusMapActivityTest : KoinTest {
 
         mapIdleStream.onNext(safeBusMap)
 
-        (ioScheduler as TestScheduler).triggerActions()
-        (uiScheduler as TestScheduler).triggerActions()
+        ioScheduler.triggerActions()
+        uiScheduler.triggerActions()
 
         verify {
             safeBusApi.findBusStops(
