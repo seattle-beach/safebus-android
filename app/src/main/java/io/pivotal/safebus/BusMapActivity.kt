@@ -42,26 +42,9 @@ class BusMapActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_bus_map)
 
-        setupMap()
-    }
+        initializeMap()
 
-    private fun setupMap() {
-        val mapReady = mapEmitter.mapReady().doOnSuccess { this.map = it }
-        val locationPermission = rxPermissions
-                .request(ACCESS_FINE_LOCATION)
-                .filter { it }
-                .first(false)
-
-        val cameraStream = locationPermission
-                .flatMap { granted ->
-                    if (granted) {
-                        getCurrentLocation().onErrorReturnItem(PIVOTAL_LOCATION)
-                    } else {
-                        Single.just(PIVOTAL_LOCATION)
-                    }
-                }
-                .map { latLng -> CameraPosition.fromLatLngZoom(latLng, 16.0f) }
-
+        // Search for Bus Stops whenever the SafeBusMap moves
         mapEmitter.cameraIdle()
                 .zipSwitch(this::fetchBusStopsInMap)
                 .observeOn(uiScheduler)
@@ -69,13 +52,34 @@ class BusMapActivity : AppCompatActivity() {
                         onNext = { (map, busStops) -> map.markerOverlay.addStops(busStops) },
                         onError = { error -> Log.e("BusMapActivity", error.toString()) }
                 )
-
-        mapReady.zipWith(cameraStream)
-                .subscribe { (map, camera) -> map.moveCamera(camera) }
-
-        mapReady.zipWith(locationPermission)
-                .subscribe { (map, locationAllowed) -> map.isMyLocationEnabled = locationAllowed }
     }
+
+    @SuppressLint("MissingPermission")
+    private fun initializeMap() {
+        val mapReady = mapEmitter.mapReady().doOnSuccess { this.map = it }
+        val locationGranted = hasLocationPermission()
+
+        // set `myLocationEnabled` map layer based on location permission
+        mapReady.zipWith(locationGranted)
+                .subscribe { (map, granted) -> map.isMyLocationEnabled = granted }
+
+        // move map to current location
+        val currentLocation = locationGranted
+                .filter { it }
+                .flatMapSingleElement { RxTasks.single(locationClient.lastLocation) }
+                .map { location -> LatLng(location.latitude, location.longitude) }
+                .toSingle()
+                .onErrorReturnItem(PIVOTAL_LOCATION)
+                .map { CameraPosition.fromLatLngZoom(it, 16.0f) }
+
+        mapReady.zipWith(currentLocation)
+                .subscribe { (map, camera) -> map.moveCamera(camera) }
+    }
+
+    private fun hasLocationPermission(): Single<Boolean> = rxPermissions
+            .request(ACCESS_FINE_LOCATION)
+            .filter { it }
+            .first(false)
 
     private fun fetchBusStopsInMap(map: SafeBusMap): Maybe<List<BusStop>> {
         val center = map.latLngBounds.center
@@ -89,11 +93,5 @@ class BusMapActivity : AppCompatActivity() {
                 .doOnError { error -> Log.e("BusMapActivity", error.toString()) }
                 .onErrorResumeNext(Maybe.empty())
                 .subscribeOn(ioScheduler)
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun getCurrentLocation(): Single<LatLng> {
-        return RxTasks.single(locationClient.lastLocation)
-                .map { location -> LatLng(location.latitude, location.longitude) }
     }
 }
