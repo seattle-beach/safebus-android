@@ -8,6 +8,7 @@ import android.util.Log
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.tbruyelle.rxpermissions2.RxPermissions
 import io.ashdavies.rx.rxtasks.RxTasks
 import io.pivotal.safebus.api.BusStop
@@ -20,13 +21,7 @@ import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.rxkotlin.zipWith
 import org.koin.android.ext.android.inject
 
-// cancels previous request from source (`this`) during the next event
-// creates a tuple of source + output
-private fun <T, U> Observable<T>.zipSwitch(mapper: (T) -> Maybe<U>): Observable<Pair<T, U>> =
-        this.switchMapMaybe { source -> Maybe.just(source).zipWith(mapper(source)) }
-
 class BusMapActivity : AppCompatActivity() {
-    private val SAFEBUS_API_LIMIT = 50
     private val PIVOTAL_LOCATION = LatLng(47.5989794, -122.335976)
 
     private val safeBusApi by inject<SafeBusApi>()
@@ -46,7 +41,7 @@ class BusMapActivity : AppCompatActivity() {
 
         // Search for Bus Stops whenever the SafeBusMap moves
         mapEmitter.cameraIdle()
-                .zipSwitch(this::fetchBusStopsInMap)
+                .zipSwitch { map -> safeBusApi.stopsInside(map.latLngBounds).subscribeOn(ioScheduler) }
                 .observeOn(uiScheduler)
                 .subscribeBy(
                         onNext = { (map, busStops) -> map.markerOverlay.addStops(busStops) },
@@ -54,7 +49,6 @@ class BusMapActivity : AppCompatActivity() {
                 )
     }
 
-    @SuppressLint("MissingPermission")
     private fun initializeMap() {
         val mapReady = mapEmitter.mapReady().doOnSuccess { this.map = it }
         val locationGranted = hasLocationPermission()
@@ -66,8 +60,7 @@ class BusMapActivity : AppCompatActivity() {
         // move map to current location
         val currentLocation = locationGranted
                 .filter { it }
-                .flatMapSingleElement { RxTasks.single(locationClient.lastLocation) }
-                .map { location -> LatLng(location.latitude, location.longitude) }
+                .flatMapSingleElement { currentLocation() }
                 .toSingle()
                 .onErrorReturnItem(PIVOTAL_LOCATION)
                 .map { CameraPosition.fromLatLngZoom(it, 16.0f) }
@@ -81,17 +74,27 @@ class BusMapActivity : AppCompatActivity() {
             .filter { it }
             .first(false)
 
-    private fun fetchBusStopsInMap(map: SafeBusMap): Maybe<List<BusStop>> {
-        val center = map.latLngBounds.center
-        val southwest = map.latLngBounds.southwest
-        val northeast = map.latLngBounds.northeast
-        val latSpan = northeast.latitude - southwest.latitude
-        val lonSpan = northeast.longitude - southwest.longitude
-        return safeBusApi
-                .findBusStops(center.latitude, center.longitude, latSpan, lonSpan, SAFEBUS_API_LIMIT)
-                .firstElement()
-                .doOnError { error -> Log.e("BusMapActivity", error.toString()) }
-                .onErrorResumeNext(Maybe.empty())
-                .subscribeOn(ioScheduler)
-    }
+    @SuppressLint("MissingPermission")
+    private fun currentLocation(): Single<LatLng> = RxTasks
+            .single(locationClient.lastLocation)
+            .map { location -> LatLng(location.latitude, location.longitude) }
 }
+
+private fun SafeBusApi.stopsInside(bounds: LatLngBounds): Maybe<List<BusStop>> {
+    val SAFEBUS_API_LIMIT = 50
+
+    val center = bounds.center
+    val southwest = bounds.southwest
+    val northeast = bounds.northeast
+    val latSpan = northeast.latitude - southwest.latitude
+    val lonSpan = northeast.longitude - southwest.longitude
+    return findBusStops(center.latitude, center.longitude, latSpan, lonSpan, SAFEBUS_API_LIMIT)
+            .firstElement()
+            .doOnError { error -> Log.e("SafeBusApi::stopsInside", error.toString()) }
+            .onErrorResumeNext(Maybe.empty())
+}
+
+// cancels previous request from source (`this`) during the next event
+// creates a tuple of source + output
+private fun <T, U> Observable<T>.zipSwitch(mapper: (T) -> Maybe<U>): Observable<Pair<T, U>> =
+        this.switchMapMaybe { source -> Maybe.just(source).zipWith(mapper(source)) }
