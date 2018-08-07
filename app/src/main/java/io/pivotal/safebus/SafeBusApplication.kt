@@ -1,8 +1,10 @@
 package io.pivotal.safebus
 
 import android.app.Application
+import android.support.v4.app.FragmentActivity
 import com.google.android.gms.location.LocationServices
 import com.jakewharton.retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
+import com.tbruyelle.rxpermissions2.RxPermissions
 import io.pivotal.safebus.api.SafeBusApi
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
@@ -27,6 +29,7 @@ open class SafeBusApplication : Application() {
         bean { BitmapCreator(applicationContext) }
         bean { BusIconResource(get()) }
         bean { params -> MapEmitter(params["activity"], get()) }
+        bean { params -> RxPermissions(params.get<FragmentActivity>("activity")) }
         factory("ui") { AndroidSchedulers.mainThread() }
         factory("io") { Schedulers.io() }
     }

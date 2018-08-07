@@ -1,6 +1,7 @@
 package io.pivotal.safebus
 
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.tbruyelle.rxpermissions2.RxPermissions
 import io.mockk.mockk
 import io.pivotal.safebus.api.SafeBusApi
 import io.reactivex.Scheduler
@@ -25,7 +26,8 @@ class TestSafeBusApplication : SafeBusApplication(), TestLifecycleApplication {
     private val testModules: Module = org.koin.dsl.module.applicationContext {
         bean { mockk<SafeBusApi>() }
         bean { mockk<FusedLocationProviderClient>() }
-        bean { params -> mockk<MapEmitter>() }
+        bean { mockk<MapEmitter>() }
+        bean { mockk<RxPermissions>() }
         bean("io") { TestScheduler() as Scheduler }
         bean("ui") { TestScheduler() as Scheduler }
     }

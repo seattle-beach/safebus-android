@@ -1,6 +1,7 @@
 package io.pivotal.safebus
 
 import android.Manifest
+import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.content.pm.PackageManager
 import android.location.Location
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -8,6 +9,7 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.tasks.Tasks
+import com.tbruyelle.rxpermissions2.RxPermissions
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
@@ -44,9 +46,10 @@ class BusMapActivityTest : KoinTest {
 
     private val safeBusApi by inject<SafeBusApi>()
     private val locationClient by inject<FusedLocationProviderClient>()
-    private val mapEmitter by inject<MapEmitter>(parameters = { emptyMap() })
+    private val mapEmitter by inject<MapEmitter>()
     private val ioScheduler by inject<Scheduler>("io")
     private val uiScheduler by inject<Scheduler>("ui")
+    private val rxPermissions by inject<RxPermissions>()
 
     @MockK
     lateinit var safeBusMap: SafeBusMap
@@ -72,6 +75,7 @@ class BusMapActivityTest : KoinTest {
 
     @Test
     fun locationGetsEnabled_ifPermissionsAreGranted() {
+        every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(true)
         val busStops = listOf(BusStop("S Jackson St & Occidental Ave Walk", 47.599274, -122.333282, Direction.NORTH))
         every {
             safeBusApi.findBusStops(any(), any(), any(), any(), any())
@@ -112,7 +116,7 @@ class BusMapActivityTest : KoinTest {
 
     @Test
     fun locationAllowed_butNoLocation_movesToPivotal() {
-        shadowOf(subject).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(true)
         every { locationClient.lastLocation } returns Tasks.forResult(null)
 
         subjectController.setup()
@@ -122,9 +126,9 @@ class BusMapActivityTest : KoinTest {
 
     @Test
     fun locationNotAllowed_movesToPivotal() {
-        shadowOf(subject).denyPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(false)
         subjectController.setup()
-        subject.onRequestPermissionsResult(subject.LOCATION_PERMISSION_CODE,
+        subject.onRequestPermissionsResult(42,
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
                 intArrayOf(PackageManager.PERMISSION_DENIED)
         )
@@ -136,9 +140,10 @@ class BusMapActivityTest : KoinTest {
 
     @Test
     fun locationNotInitiallyAllowed_movesToLocationAfterAllowed() {
-        shadowOf(subject).denyPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(true, true)
+
         subjectController.setup()
-        subject.onRequestPermissionsResult(subject.LOCATION_PERMISSION_CODE,
+        subject.onRequestPermissionsResult(42,
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
                 intArrayOf(PackageManager.PERMISSION_GRANTED)
         )
