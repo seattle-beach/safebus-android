@@ -14,7 +14,7 @@ class MarkerOverlay(private val map: SafeBusMap,
                     private val iconResource: BusIconResource,
                     private val markerLimit: Int = 150) {
 
-    private val markers = HashMap<Marker, BusStop>()
+    private val busStops = HashMap<Marker, BusStop>()
     private var tappedMarker: Marker? = null
     val onMarkerClicked = BehaviorSubject.create<Marker>()
 
@@ -23,24 +23,22 @@ class MarkerOverlay(private val map: SafeBusMap,
         newStops = newStops.take(markerLimit)
 
         // remove extra markers
-        val extraMarkerCount = markers.size + newStops.size - markerLimit
+        val extraMarkerCount = busStops.size + newStops.size - markerLimit
         extraMarkers(alreadyAdded, extraMarkerCount).forEach { marker ->
             marker.remove()
-            markers.remove(marker)
+            busStops.remove(marker)
         }
 
         newStops.map { stop -> Pair(stop.into(), stop) }
                 .map { (markerOptions, stop) -> Pair(map.addMarker(markerOptions), stop) }
-                .let { newMarkers -> markers.putAll(newMarkers) }
+                .let { newMarkers -> busStops.putAll(newMarkers) }
     }
 
     fun busStopTapped(): Observable<BusStop> = onMarkerClicked
-            .mapNotNull { markers[it] }
+            .mapNotNull { busStops[it] }
             .doOnNext {
                 tappedMarker?.remove()
-                tappedMarker = map.addMarker(MarkerOptions()
-                        .position(LatLng(it.lat, it.lon))
-                )
+                tappedMarker = map.addMarker(MarkerOptions().position(LatLng(it.lat, it.lon)))
             }
 
     private fun BusStop.into(): MarkerOptions {
@@ -53,7 +51,7 @@ class MarkerOverlay(private val map: SafeBusMap,
 
     private fun extraMarkers(alreadyAdded: List<BusStop>, extraMarkerCount: Int): List<Marker> {
         return if (extraMarkerCount > 0) {
-            markers
+            busStops
                     .filterNot { (marker, stop) ->
                         marker.isInfoWindowShown || alreadyAdded.contains(stop)
                     }
@@ -71,5 +69,5 @@ class MarkerOverlay(private val map: SafeBusMap,
         return (marker.latitude - map.latitude).pow(2) + (marker.longitude - map.longitude).pow(2)
     }
 
-    private fun isNewStop(stop: BusStop) = !markers.values.contains(stop)
+    private fun isNewStop(stop: BusStop) = !busStops.values.contains(stop)
 }

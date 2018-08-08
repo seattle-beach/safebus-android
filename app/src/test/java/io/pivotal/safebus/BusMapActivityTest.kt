@@ -3,6 +3,7 @@ package io.pivotal.safebus
 import android.Manifest
 import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.content.pm.PackageManager
+import android.graphics.PorterDuffColorFilter
 import android.location.Location
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.maps.model.CameraPosition
@@ -22,6 +23,8 @@ import io.reactivex.Scheduler
 import io.reactivex.Single
 import io.reactivex.schedulers.TestScheduler
 import io.reactivex.subjects.BehaviorSubject
+import kotlinx.android.synthetic.main.activity_bus_map.*
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,6 +50,7 @@ class BusMapActivityTest : KoinTest {
     private val _ioScheduler by inject<Scheduler>("io")
     private val _uiScheduler by inject<Scheduler>("ui")
     private val rxPermissions by inject<RxPermissions>()
+    private val favoriteStopsRepository by inject<FavoriteStopsRepository>()
 
     private val ioScheduler = _ioScheduler as TestScheduler
     private val uiScheduler = _uiScheduler as TestScheduler
@@ -81,7 +85,7 @@ class BusMapActivityTest : KoinTest {
     @Test
     fun locationGetsEnabled_ifPermissionsAreGranted() {
         every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(true)
-        val busStops = listOf(BusStop("S Jackson St & Occidental Ave Walk", 47.599274, -122.333282, Direction.NORTH))
+        val busStops = listOf(BusStop("1_1", 47.599274, -122.333282, Direction.NORTH, "S Jackson St & Occidental Ave Walk"))
         every {
             safeBusApi.findBusStops(any(), any(), any(), any(), any())
         } returns Observable.just(busStops)
@@ -120,14 +124,89 @@ class BusMapActivityTest : KoinTest {
     fun centersMapWithoutRezooming_whenBusIsTapped() {
         every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(true)
         every { locationClient.lastLocation } returns Tasks.forResult(null)
+        every { favoriteStopsRepository.exists(any()) } returns false
 
         subjectController.setup()
 
         every { safeBusMap.cameraPosition } returns CameraPosition.fromLatLngZoom(LatLng(20.0, 20.0), 12.0f)
 
-        busTappedStream.onNext(BusStop(name = "FOO", lat = 12.2, lon = 12.3, direction = Direction.NONE))
+        busTappedStream.onNext(BusStop(id = "1_1", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "FOO"))
 
         verify { safeBusMap.animateCamera(CameraPosition.fromLatLngZoom(LatLng(12.2, 12.3), 12.0f)) }
+    }
+
+    @Test
+    fun addsStopToFavorite() {
+        every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(true)
+        every { locationClient.lastLocation } returns Tasks.forResult(null)
+        every { favoriteStopsRepository.toggle(any()) } returns true
+
+        subjectController.setup()
+
+        every { safeBusMap.cameraPosition } returns CameraPosition.fromLatLngZoom(LatLng(20.0, 20.0), 12.0f)
+
+        busTappedStream.onNext(BusStop(id = "1_1", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "FOO"))
+        subject.favoriteIcon.performClick()
+
+        val colorFilter = shadowOf(subject.favoriteIcon.colorFilter as PorterDuffColorFilter)
+
+        assertEquals(subject.getColor(R.color.favoriteStop), colorFilter.color)
+        verify { favoriteStopsRepository.toggle("1_1") }
+    }
+
+    @Test
+    fun colorResetsForEveryStop() {
+        every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(true)
+        every { locationClient.lastLocation } returns Tasks.forResult(null)
+        every { favoriteStopsRepository.toggle(any()) } returns true
+        every { favoriteStopsRepository.exists(any()) } returns false
+
+        subjectController.setup()
+
+        every { safeBusMap.cameraPosition } returns CameraPosition.fromLatLngZoom(LatLng(20.0, 20.0), 12.0f)
+
+        busTappedStream.onNext(BusStop(id = "1_1", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "FOO"))
+        subject.favoriteIcon.performClick()
+        busTappedStream.onNext(BusStop(id = "1_3", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "BAR"))
+
+        val colorFilter = shadowOf(subject.favoriteIcon.colorFilter as PorterDuffColorFilter)
+
+        assertEquals(subject.getColor(R.color.notFavoriteStop), colorFilter.color)
+    }
+
+    @Test
+    fun startsRedIfAlreadyFavorite() {
+        every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(true)
+        every { locationClient.lastLocation } returns Tasks.forResult(null)
+        every { favoriteStopsRepository.exists(any()) } returns true
+
+        subjectController.setup()
+
+        every { safeBusMap.cameraPosition } returns CameraPosition.fromLatLngZoom(LatLng(20.0, 20.0), 12.0f)
+
+        busTappedStream.onNext(BusStop(id = "1_1", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "FOO"))
+        val colorFilter = shadowOf(subject.favoriteIcon.colorFilter as PorterDuffColorFilter)
+
+        assertEquals(subject.getColor(R.color.favoriteStop), colorFilter.color)
+    }
+
+    @Test
+    fun removeStopFromFavorites() {
+        every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(true)
+        every { locationClient.lastLocation } returns Tasks.forResult(null)
+        every { favoriteStopsRepository.toggle(any()) } returns false
+
+        subjectController.setup()
+
+        every { safeBusMap.cameraPosition } returns CameraPosition.fromLatLngZoom(LatLng(20.0, 20.0), 12.0f)
+
+        busTappedStream.onNext(BusStop(id = "1_1", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "FOO"))
+        subject.favoriteIcon.performClick()
+
+        val colorFilter = shadowOf(subject.favoriteIcon.colorFilter as PorterDuffColorFilter)
+
+        assertEquals(subject.getColor(R.color.notFavoriteStop), colorFilter.color)
+        verify { favoriteStopsRepository.toggle("1_1") }
     }
 
     @Test

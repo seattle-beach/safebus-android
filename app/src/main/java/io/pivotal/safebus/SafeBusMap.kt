@@ -3,14 +3,16 @@ package io.pivotal.safebus
 import android.annotation.SuppressLint
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.model.*
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.Marker
+import com.google.android.gms.maps.model.MarkerOptions
 import io.pivotal.safebus.api.BusStop
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
 
 class SafeBusMap(private val map: GoogleMap, iconResource: BusIconResource) {
     private val onCameraIdle = BehaviorSubject.create<LatLngBounds>()
-    private val onStopTapped = BehaviorSubject.create<BusStop>()
 
     var isMyLocationEnabled: Boolean
         get() = this.map.isMyLocationEnabled

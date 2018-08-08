@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
+import android.view.View
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -36,8 +37,11 @@ class BusMapActivity : AppCompatActivity() {
     private val uiScheduler by inject<Scheduler>("ui")
     private val rxPermissions by inject<RxPermissions>(parameters = { mapOf("activity" to this) })
     private val mapEmitter by inject<MapEmitter>(parameters = { mapOf("activity" to this) })
+    private val favoriteStopsRepository by inject<FavoriteStopsRepository>()
 
     private lateinit var map: SafeBusMap
+
+    private var selectedStop: BusStop? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +58,11 @@ class BusMapActivity : AppCompatActivity() {
 
         mapReady.flatMapObservable { it.busStopTapped() }
                 .subscribe { stop ->
+                    selectedStop = stop
+
+                    val colorResource = iconColor(favoriteStopsRepository.exists(stop.id))
+                    favoriteIcon.setColorFilter(getColor(colorResource))
+
                     busStopTitle.text = stop.name
                     toolBar.displayedChild = MapStatus.SELECTED.ordinal
                     map.animateCamera(CameraPosition.fromLatLngZoom(LatLng(stop.lat, stop.lon), map.cameraPosition.zoom))
@@ -61,6 +70,20 @@ class BusMapActivity : AppCompatActivity() {
 
         stops.firstElement().subscribe { toolBar.displayedChild = MapStatus.UNSELECTED.ordinal }
         stops.subscribeBy { busStops -> map.addStops(busStops) }
+    }
+
+    fun favoriteClicked(_view: View) {
+        selectedStop?.let {
+            val added = favoriteStopsRepository.toggle(it.id)
+            val colorResource = iconColor(added)
+            favoriteIcon.setColorFilter(getColor(colorResource))
+        }
+    }
+
+    private fun iconColor(isFavorite: Boolean): Int = if (isFavorite) {
+        R.color.favoriteStop
+    } else {
+        R.color.notFavoriteStop
     }
 
     private fun initializeMap(): Single<SafeBusMap> {

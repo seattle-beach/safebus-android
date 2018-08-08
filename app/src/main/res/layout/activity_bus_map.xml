@@ -57,7 +57,8 @@
                     android:layout_gravity="center"
                     android:layout_weight="10"
                     android:contentDescription="@string/favorite_icon_description"
-                    android:src="@drawable/favorite_24dp" />
+                    android:src="@drawable/favorite_24dp"
+                    android:onClick="favoriteClicked"/>
 
             </LinearLayout>
 

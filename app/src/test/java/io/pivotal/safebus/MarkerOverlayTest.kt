@@ -22,9 +22,9 @@ class MarkerOverlayTest {
 
     private lateinit var subject: MarkerOverlay
 
-    private val northStop = BusStop("James St. 1", 47.599274, -122.333282, Direction.NORTH)
-    private val southStop = BusStop("James St. 2", 48.599274, -122.333282, Direction.SOUTH)
-    private val noDirectionStop = BusStop("James St. 3", 49.599274, -122.333282, Direction.NONE)
+    private val northStop = BusStop("1_1", 47.599274, -122.333282, Direction.NORTH, "James St. 1")
+    private val southStop = BusStop("1_2", 48.599274, -122.333282, Direction.SOUTH, "James St. 2")
+    private val noDirectionStop = BusStop("1_3", 49.599274, -122.333282, Direction.NONE, "James St. 3")
 
     private fun MockKVerificationScope.markerStopMatcher(firstStop: BusStop): MarkerOptions =
             match { m -> m.isMarkerForStop(firstStop) }

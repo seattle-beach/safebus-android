@@ -28,6 +28,7 @@ open class SafeBusApplication : Application() {
         bean { LocationServices.getFusedLocationProviderClient(applicationContext) }
         bean { BitmapCreator(applicationContext) }
         bean { BusIconResource(get()) }
+        bean { FavoriteStopsRepository(applicationContext) }
         bean { params -> MapEmitter(params["activity"], get()) }
         bean { params -> RxPermissions(params.get<FragmentActivity>("activity")) }
         factory("ui") { AndroidSchedulers.mainThread() }

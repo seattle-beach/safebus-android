@@ -30,6 +30,8 @@ class TestSafeBusApplication : SafeBusApplication(), TestLifecycleApplication {
         bean { mockk<RxPermissions>() }
         bean("io") { TestScheduler() as Scheduler }
         bean("ui") { TestScheduler() as Scheduler }
+        bean { mockk<FavoriteStopsRepository>(relaxUnitFun = true) }
+        bean { applicationContext }
     }
 
     override fun onCreate() {

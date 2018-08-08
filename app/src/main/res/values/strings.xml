@@ -4,4 +4,6 @@
     <string name="favorite_icon_description">favorite icon</string>
     <string name="select_stop">SELECT A BUS STOP</string>
     <string name="test_bus_stop_name">REALLY LONG BUS STOP NAME JUST TO CHECK IT WRAPS</string>
+    <string name="favorite_stops_preferences">io.pivotal.safebus.FAVORITE_STOPS_FILE</string>
+    <string name="favorite_stops_key">favorites</string>
 </resources>
