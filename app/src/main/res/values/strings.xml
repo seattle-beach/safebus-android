@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">Safebus</string>
     <string name="title_activity_bus_map">Bus Stops</string>
+    <string name="favorite_icon_description">favorite icon</string>
+    <string name="select_stop">SELECT A BUS STOP</string>
+    <string name="test_bus_stop_name">REALLY LONG BUS STOP NAME JUST TO CHECK IT WRAPS</string>
 </resources>

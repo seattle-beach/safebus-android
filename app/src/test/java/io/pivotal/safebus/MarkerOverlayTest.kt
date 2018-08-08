@@ -5,6 +5,7 @@ import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import io.pivotal.safebus.api.BusStop
 import io.pivotal.safebus.api.Direction
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
@@ -127,5 +128,18 @@ class MarkerOverlayTest {
 
         verify(exactly = 0) { capturedMarkers[northStop.name]?.remove() }
         verify { capturedMarkers[southStop.name]?.remove() }
+    }
+
+    @Test
+    fun returnsStopForMarker() {
+        subject.addStops(listOf(northStop, southStop))
+
+        val returnedNorthStop = subject.stop(capturedMarkers[northStop.name]!!)
+        assertEquals(returnedNorthStop, northStop)
+
+        subject.addStops(listOf(southStop, noDirectionStop))
+
+        val removedStop = subject.stop(capturedMarkers[northStop.name]!!)
+        assertEquals(null, removedStop)
     }
 }

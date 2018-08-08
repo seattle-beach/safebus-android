@@ -2,14 +2,16 @@ package io.pivotal.safebus
 
 import android.content.Context
 import android.graphics.*
+import android.support.annotation.DrawableRes
+import android.support.v4.content.ContextCompat
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import io.pivotal.safebus.api.Direction
 
 
 class BitmapCreator(private val context: Context) {
-    fun createBitmap(resource: Int): BitmapDescriptor {
-        val drawable = context.getDrawable(resource)
+    fun createBitmap(@DrawableRes resource: Int): BitmapDescriptor {
+        val drawable = context.getDrawable(resource)!!
         val bitmap = Bitmap.createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight, Bitmap.Config.ARGB_8888)
         val background = Paint()
         val canvas = Canvas(bitmap)
@@ -35,7 +37,7 @@ class BusIconResource(private val creator: BitmapCreator) {
     private val cache: MutableMap<Direction, BitmapDescriptor> = HashMap()
 
     fun getIcon(direction: Direction): BitmapDescriptor {
-        return cache.getOrPut(direction, { create(direction) })
+        return cache.getOrPut(direction) { create(direction) }
     }
 
     private fun create(direction: Direction): BitmapDescriptor {

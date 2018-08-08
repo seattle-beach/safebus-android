@@ -1,8 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
-<fragment xmlns:android="http://schemas.android.com/apk/res/android"
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/map"
-    android:name="com.google.android.gms.maps.SupportMapFragment"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".BusMapActivity" />
+    android:orientation="vertical"
+    tools:context=".BusMapActivity">
+
+    <Toolbar
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content">
+
+        <ViewFlipper
+            android:id="@+id/toolBar"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content">
+
+            <ProgressBar
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center" />
+
+            <TextView
+                style="@style/TextAppearance.AppCompat.Title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="@string/select_stop" />
+
+            <LinearLayout
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:layout_marginStart="4dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/busStopTitle"
+                    style="@style/TextAppearance.AppCompat.Title"
+                    android:layout_width="0px"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="90"
+                    android:text="@string/test_bus_stop_name"
+                    android:textAlignment="center" />
+
+                <Space
+                    android:layout_width="1dp"
+                    android:layout_height="wrap_content" />
+
+                <ImageView
+                    android:id="@+id/favoriteIcon"
+                    android:layout_width="0px"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:layout_weight="10"
+                    android:contentDescription="@string/favorite_icon_description"
+                    android:src="@drawable/favorite_24dp" />
+
+            </LinearLayout>
+
+        </ViewFlipper>
+    </Toolbar>
+
+    <fragment
+        android:id="@+id/map"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+</LinearLayout>

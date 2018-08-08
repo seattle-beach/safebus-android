@@ -19,9 +19,16 @@ import io.reactivex.Scheduler
 import io.reactivex.Single
 import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.rxkotlin.zipWith
+import kotlinx.android.synthetic.main.activity_bus_map.*
 import org.koin.android.ext.android.inject
 
 class BusMapActivity : AppCompatActivity() {
+    enum class MapStatus {
+        LOADING,
+        UNSELECTED,
+        SELECTED
+    }
+
     private val PIVOTAL_LOCATION = LatLng(47.5989794, -122.335976)
 
     private val safeBusApi by inject<SafeBusApi>()
@@ -37,20 +44,28 @@ class BusMapActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_bus_map)
 
-        initializeMap()
+        val mapReady = initializeMap().doOnSuccess { this.map = it }
 
-        // Search for Bus Stops whenever the SafeBusMap moves
-        mapEmitter.cameraIdle()
-                .zipSwitch { map -> safeBusApi.stopsInside(map.latLngBounds).subscribeOn(ioScheduler) }
+        val stops = mapReady
+                .flatMapObservable { it.cameraIdle() }
+                .switchMapMaybe { bounds ->
+                    safeBusApi.stopsInside(bounds).subscribeOn(ioScheduler)
+                }
                 .observeOn(uiScheduler)
-                .subscribeBy(
-                        onNext = { (map, busStops) -> map.markerOverlay.addStops(busStops) },
-                        onError = { error -> Log.e("BusMapActivity", error.toString()) }
-                )
+
+        mapReady.flatMapObservable { it.busStopTapped() }
+                .subscribe { stop ->
+                    busStopTitle.text = stop.name
+                    toolBar.displayedChild = MapStatus.SELECTED.ordinal
+                    map.animateCamera(CameraPosition.fromLatLngZoom(LatLng(stop.lat, stop.lon), map.cameraPosition.zoom))
+                }
+
+        stops.firstElement().subscribe { toolBar.displayedChild = MapStatus.UNSELECTED.ordinal }
+        stops.subscribeBy { busStops -> map.addStops(busStops) }
     }
 
-    private fun initializeMap() {
-        val mapReady = mapEmitter.mapReady().doOnSuccess { this.map = it }
+    private fun initializeMap(): Single<SafeBusMap> {
+        val mapReady = mapEmitter.mapReady()
         val locationGranted = hasLocationPermission()
 
         // set `myLocationEnabled` map layer based on location permission
@@ -65,8 +80,9 @@ class BusMapActivity : AppCompatActivity() {
                 .onErrorReturnItem(PIVOTAL_LOCATION)
                 .map { CameraPosition.fromLatLngZoom(it, 16.0f) }
 
-        mapReady.zipWith(currentLocation)
-                .subscribe { (map, camera) -> map.moveCamera(camera) }
+        mapReady.zipWith(currentLocation).subscribe { (map, camera) -> map.moveCamera(camera) }
+
+        return mapReady
     }
 
     private fun hasLocationPermission(): Single<Boolean> = rxPermissions

@@ -10,25 +10,25 @@ class MarkerOverlay(private val map: SafeBusMap,
                     private val iconResource: BusIconResource,
                     private val markerLimit: Int = 150) {
 
-    private val markers: MutableSet<Marker> = HashSet()
+    private val markers: MutableMap<Marker, BusStop> = HashMap()
 
     fun addStops(stops: Iterable<BusStop>) {
-        val newStops = stops.filter(this::isNewStop).take(markerLimit)
+        var (newStops, alreadyAdded) = stops.partition(this::isNewStop)
+        newStops = newStops.take(markerLimit)
 
+        // remove extra markers
         val extraMarkerCount = markers.size + newStops.size - markerLimit
-        if (extraMarkerCount > 0) {
-            val extraMarkers = markers.filterNot { m -> shouldRetain(m, stops) } // do not remove the active marker nor the new markers
-                    .sortedByDescending(this::distance) //remove the ones farther from the center first
-                    .take(extraMarkerCount) //but only remove up to the extraMarkerCount
-
-            extraMarkers.forEach(Marker::remove)
-            markers.removeAll(extraMarkers)
+        extraMarkers(alreadyAdded, extraMarkerCount).forEach { marker ->
+            marker.remove()
+            markers.remove(marker)
         }
 
-        newStops.map { stop -> stop.into() }
-                .map { markerOptions -> map.addMarker(markerOptions) }
-                .let { newMarkers -> markers.addAll(newMarkers) }
+        newStops.map { stop -> Pair(stop.into(), stop) }
+                .map { (markerOptions, stop) -> Pair(map.addMarker(markerOptions), stop) }
+                .let { newMarkers -> markers.putAll(newMarkers) }
     }
+
+    fun stop(marker: Marker): BusStop? = markers[marker]
 
     private fun BusStop.into(): MarkerOptions {
         return MarkerOptions()
@@ -38,21 +38,26 @@ class MarkerOverlay(private val map: SafeBusMap,
                 .icon(iconResource.getIcon(this.direction))
     }
 
+    private fun extraMarkers(alreadyAdded: List<BusStop>, extraMarkerCount: Int): List<Marker> {
+        return if (extraMarkerCount > 0) {
+            markers
+                    .filterNot { (marker, stop) ->
+                        marker.isInfoWindowShown || alreadyAdded.contains(stop)
+                    }
+                    .keys
+                    .sortedByDescending(this::distance) //remove the ones farther from the center first
+                    .take(extraMarkerCount) //but only remove up to the extraMarkerCount
+        } else {
+            emptyList()
+        }
+    }
+
     private fun distance(m1: Marker): Double {
         val marker = m1.position
         val map = map.latLngBounds.center
         return (marker.latitude - map.latitude).pow(2) + (marker.longitude - map.longitude).pow(2)
     }
 
-    private fun isNewStop(stop: BusStop) = markers.none { marker -> isMarkerForStop(marker, stop) }
+    private fun isNewStop(stop: BusStop) = !markers.values.contains(stop)
 
-    private fun shouldRetain(marker: Marker, newStops: Iterable<BusStop>): Boolean {
-        return marker.isInfoWindowShown || newStops.any { isMarkerForStop(marker, it) }
-    }
-
-    private fun isMarkerForStop(marker: Marker, stop: BusStop): Boolean {
-        return (marker.position.latitude == stop.lat
-                && marker.position.longitude == stop.lon
-                && marker.title == stop.name)
-    }
 }

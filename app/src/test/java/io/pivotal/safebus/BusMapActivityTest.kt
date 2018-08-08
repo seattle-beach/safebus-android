@@ -13,7 +13,6 @@ import com.tbruyelle.rxpermissions2.RxPermissions
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
-import io.mockk.mockk
 import io.mockk.verify
 import io.pivotal.safebus.api.BusStop
 import io.pivotal.safebus.api.Direction
@@ -36,8 +35,6 @@ import org.robolectric.android.controller.ActivityController
 
 @RunWith(RobolectricTestRunner::class)
 class BusMapActivityTest : KoinTest {
-    private lateinit var subject: BusMapActivity
-    private lateinit var mapIdleStream: BehaviorSubject<SafeBusMap>
     private val location = Location("")
     private val PIVOTAL_LOCATION = CameraPosition.Builder()
             .target(LatLng(47.5989794, -122.335976))
@@ -54,6 +51,10 @@ class BusMapActivityTest : KoinTest {
     private val ioScheduler = _ioScheduler as TestScheduler
     private val uiScheduler = _uiScheduler as TestScheduler
 
+    private lateinit var subject: BusMapActivity
+    private lateinit var mapIdleStream: BehaviorSubject<LatLngBounds>
+    private lateinit var busTappedStream: BehaviorSubject<BusStop>
+
     @MockK
     lateinit var safeBusMap: SafeBusMap
 
@@ -63,10 +64,11 @@ class BusMapActivityTest : KoinTest {
     fun setup() {
         MockKAnnotations.init(this, relaxUnitFun = true)
         mapIdleStream = BehaviorSubject.create()
+        busTappedStream = BehaviorSubject.create()
 
         every { mapEmitter.mapReady() } returns Single.just(safeBusMap)
-        every { mapEmitter.cameraIdle() } returns mapIdleStream
-        every { safeBusMap.markerOverlay } returns mockk(relaxUnitFun = true)
+        every { safeBusMap.cameraIdle() } returns mapIdleStream
+        every { safeBusMap.busStopTapped() } returns busTappedStream
 
         subjectController = Robolectric.buildActivity(BusMapActivity::class.java)
         subject = subjectController.get()
@@ -84,11 +86,6 @@ class BusMapActivityTest : KoinTest {
             safeBusApi.findBusStops(any(), any(), any(), any(), any())
         } returns Observable.just(busStops)
 
-        every { safeBusMap.latLngBounds } returns LatLngBounds(
-                LatLng(location.latitude - 0.015, location.longitude - 0.01),
-                LatLng(location.latitude + 0.015, location.longitude + 0.01)
-        )
-
         shadowOf(subject).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
         subjectController.setup()
         val position = CameraPosition.Builder()
@@ -96,7 +93,10 @@ class BusMapActivityTest : KoinTest {
                 .zoom(16.0f)
                 .build()
 
-        mapIdleStream.onNext(safeBusMap)
+        mapIdleStream.onNext(LatLngBounds(
+                LatLng(location.latitude - 0.015, location.longitude - 0.01),
+                LatLng(location.latitude + 0.015, location.longitude + 0.01)
+        ))
 
         ioScheduler.triggerActions()
         uiScheduler.triggerActions()
@@ -113,8 +113,21 @@ class BusMapActivityTest : KoinTest {
 
         verify { safeBusMap.isMyLocationEnabled = true }
         verify { safeBusMap.moveCamera(position) }
-        val overlay = safeBusMap.markerOverlay
-        verify { overlay.addStops(busStops) }
+        verify { safeBusMap.addStops(busStops) }
+    }
+
+    @Test
+    fun centersMapWithoutRezooming_whenBusIsTapped() {
+        every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(true)
+        every { locationClient.lastLocation } returns Tasks.forResult(null)
+
+        subjectController.setup()
+
+        every { safeBusMap.cameraPosition } returns CameraPosition.fromLatLngZoom(LatLng(20.0, 20.0), 12.0f)
+
+        busTappedStream.onNext(BusStop(name = "FOO", lat = 12.2, lon = 12.3, direction = Direction.NONE))
+
+        verify { safeBusMap.animateCamera(CameraPosition.fromLatLngZoom(LatLng(12.2, 12.3), 12.0f)) }
     }
 
     @Test
