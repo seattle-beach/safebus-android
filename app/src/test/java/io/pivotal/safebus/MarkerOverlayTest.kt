@@ -5,7 +5,8 @@ import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import io.pivotal.safebus.api.BusStop
 import io.pivotal.safebus.api.Direction
-import org.junit.Assert.assertEquals
+import io.reactivex.observers.TestObserver
+import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 
@@ -49,9 +50,13 @@ class MarkerOverlayTest {
             val marker = mockk<Marker>(relaxUnitFun = true)
             val options = markerCapture.captured
             every { marker.position } returns options.position
-            every { marker.title } returns options.title
+            if (options.title != null) {
+                every { marker.title } returns options.title
+                capturedMarkers[marker.title] = marker
+            } else {
+                capturedMarkers["NO_TITLE"] = marker
+            }
             every { marker.isInfoWindowShown } returns false
-            capturedMarkers[marker.title] = marker
             marker
         }
 
@@ -68,7 +73,7 @@ class MarkerOverlayTest {
     }
 
     @Test
-    fun adds_stops() {
+    fun addsStops() {
         subject.addStops(listOf(northStop, southStop))
 
         verify { safeBusMap.addMarker(markerStopMatcher(northStop)) }
@@ -76,7 +81,7 @@ class MarkerOverlayTest {
     }
 
     @Test
-    fun does_not_add_repeats() {
+    fun doesNotAddRepeats() {
         subject.addStops(listOf(northStop))
         subject.addStops(listOf(southStop, northStop))
 
@@ -85,14 +90,14 @@ class MarkerOverlayTest {
     }
 
     @Test
-    fun limits_number_of_stops_added_at_once() {
+    fun limitsNumberOfStopsAddedAtOnce() {
         subject.addStops(listOf(northStop, southStop, noDirectionStop))
 
         verify(exactly = 2) { safeBusMap.addMarker(any()) }
     }
 
     @Test
-    fun removes_far_stops_when_limit_is_reached() {
+    fun removesFarStopsWhenLimitIsReached() {
         subject.addStops(listOf(northStop, noDirectionStop))
         subject.addStops(listOf(southStop))
 
@@ -102,7 +107,7 @@ class MarkerOverlayTest {
     }
 
     @Test
-    fun does_not_remove_selected_marker() {
+    fun doesNotRemoveSelectedMarker() {
         val subject = MarkerOverlay(safeBusMap, iconResource, 1)
 
         subject.addStops(listOf(northStop))
@@ -114,7 +119,7 @@ class MarkerOverlayTest {
     }
 
     @Test
-    fun adding_duplicate_does_not_count_towards_limit() {
+    fun addingDuplicateDOesNotCountTowardsLimit() {
         subject.addStops(listOf(northStop))
         subject.addStops(listOf(northStop, southStop))
 
@@ -122,7 +127,7 @@ class MarkerOverlayTest {
     }
 
     @Test
-    fun does_not_remove_markers_that_will_be_displayed() {
+    fun doesNotRemoveMarkersThatWillBeDisplayed() {
         subject.addStops(listOf(northStop, southStop))
         subject.addStops(listOf(northStop, noDirectionStop))
 
@@ -131,15 +136,63 @@ class MarkerOverlayTest {
     }
 
     @Test
-    fun returnsStopForMarker() {
+    fun alertsOnBusStopTapped() {
+        val observer = TestObserver<BusStop>()
+        subject.busStopTapped().subscribe(observer)
+        subject.addStops(listOf(northStop, southStop))
+        subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
+        subject.onMarkerClicked.onNext(capturedMarkers[southStop.name]!!)
+
+        observer.assertNoErrors()
+        observer.assertValues(northStop, southStop)
+    }
+
+    @Test
+    fun addsADefaultMarkerWhereTapped() {
+        val observer = TestObserver<BusStop>()
+        subject.busStopTapped().subscribe(observer)
+        subject.addStops(listOf(northStop))
+        subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
+        val noTitleMarker = capturedMarkers["NO_TITLE"]
+        assertNotNull(noTitleMarker)
+        assertEquals(noTitleMarker?.position, LatLng(northStop.lat, northStop.lon))
+    }
+
+    @Test
+    fun noAlertIfNonStopMarkerIsTapped() {
+        val observer = TestObserver<BusStop>()
+        subject.busStopTapped().subscribe(observer)
+        subject.addStops(listOf(northStop))
+        subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
+        subject.onMarkerClicked.onNext(capturedMarkers["NO_TITLE"]!!)
+        observer.assertValue(northStop)
+    }
+
+    @Test
+    fun switchesMarkerOnSecondTap() {
+        val observer = TestObserver<BusStop>()
+        subject.busStopTapped().subscribe(observer)
         subject.addStops(listOf(northStop, southStop))
 
-        val returnedNorthStop = subject.stop(capturedMarkers[northStop.name]!!)
-        assertEquals(returnedNorthStop, northStop)
+        subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
+        val firstNoTitleMarker = capturedMarkers["NO_TITLE"]!!
 
-        subject.addStops(listOf(southStop, noDirectionStop))
+        subject.onMarkerClicked.onNext(capturedMarkers[southStop.name]!!)
+        val secondNoTitleMarker = capturedMarkers["NO_TITLE"]!!
 
-        val removedStop = subject.stop(capturedMarkers[northStop.name]!!)
-        assertEquals(null, removedStop)
+        assertNotEquals(firstNoTitleMarker, secondNoTitleMarker)
+        verify { firstNoTitleMarker.remove() }
+        verify(exactly = 0) { secondNoTitleMarker.remove() }
+    }
+
+    @Test
+    fun noReactionForRemovedStop() {
+        val observer = TestObserver<BusStop>()
+        subject.busStopTapped().subscribe(observer)
+        subject.addStops(listOf(northStop, southStop))
+        subject.addStops(listOf(northStop, noDirectionStop))
+
+        subject.onMarkerClicked.onNext(capturedMarkers[southStop.name]!!)
+        observer.assertNoValues()
     }
 }

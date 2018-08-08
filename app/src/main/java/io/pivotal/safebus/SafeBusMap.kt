@@ -3,10 +3,7 @@ package io.pivotal.safebus
 import android.annotation.SuppressLint
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLngBounds
-import com.google.android.gms.maps.model.Marker
-import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.*
 import io.pivotal.safebus.api.BusStop
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
@@ -33,15 +30,14 @@ class SafeBusMap(private val map: GoogleMap, iconResource: BusIconResource) {
     init {
         map.setOnCameraIdleListener { onCameraIdle.onNext(this.latLngBounds) }
         map.setOnMarkerClickListener { marker ->
-            val stop = markerOverlay.stop(marker)
-            stop?.let { onStopTapped.onNext(it) }
-            stop != null
+            this.markerOverlay.onMarkerClicked.onNext(marker)
+            true
         }
     }
 
     fun cameraIdle(): Observable<LatLngBounds> = onCameraIdle
 
-    fun busStopTapped(): Observable<BusStop> = onStopTapped
+    fun busStopTapped(): Observable<BusStop> = this.markerOverlay.busStopTapped()
 
     fun moveCamera(position: CameraPosition) = this.map.moveCamera(CameraUpdateFactory.newCameraPosition(position))
 

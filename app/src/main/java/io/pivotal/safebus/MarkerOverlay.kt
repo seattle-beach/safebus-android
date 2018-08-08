@@ -4,13 +4,19 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import io.pivotal.safebus.api.BusStop
+import io.pivotal.safebus.extensions.rx.mapNotNull
+import io.reactivex.Observable
+import io.reactivex.subjects.BehaviorSubject
+import java.util.*
 import kotlin.math.pow
 
 class MarkerOverlay(private val map: SafeBusMap,
                     private val iconResource: BusIconResource,
                     private val markerLimit: Int = 150) {
 
-    private val markers: MutableMap<Marker, BusStop> = HashMap()
+    private val markers = HashMap<Marker, BusStop>()
+    private var tappedMarker: Marker? = null
+    val onMarkerClicked = BehaviorSubject.create<Marker>()
 
     fun addStops(stops: Iterable<BusStop>) {
         var (newStops, alreadyAdded) = stops.partition(this::isNewStop)
@@ -28,7 +34,14 @@ class MarkerOverlay(private val map: SafeBusMap,
                 .let { newMarkers -> markers.putAll(newMarkers) }
     }
 
-    fun stop(marker: Marker): BusStop? = markers[marker]
+    fun busStopTapped(): Observable<BusStop> = onMarkerClicked
+            .mapNotNull { markers[it] }
+            .doOnNext {
+                tappedMarker?.remove()
+                tappedMarker = map.addMarker(MarkerOptions()
+                        .position(LatLng(it.lat, it.lon))
+                )
+            }
 
     private fun BusStop.into(): MarkerOptions {
         return MarkerOptions()
@@ -59,5 +72,4 @@ class MarkerOverlay(private val map: SafeBusMap,
     }
 
     private fun isNewStop(stop: BusStop) = !markers.values.contains(stop)
-
 }

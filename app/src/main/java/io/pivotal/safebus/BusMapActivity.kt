@@ -14,7 +14,6 @@ import io.ashdavies.rx.rxtasks.RxTasks
 import io.pivotal.safebus.api.BusStop
 import io.pivotal.safebus.api.SafeBusApi
 import io.reactivex.Maybe
-import io.reactivex.Observable
 import io.reactivex.Scheduler
 import io.reactivex.Single
 import io.reactivex.rxkotlin.subscribeBy
@@ -109,8 +108,3 @@ private fun SafeBusApi.stopsInside(bounds: LatLngBounds): Maybe<List<BusStop>> {
             .doOnError { error -> Log.e("SafeBusApi::stopsInside", error.toString()) }
             .onErrorResumeNext(Maybe.empty())
 }
-
-// cancels previous request from source (`this`) during the next event
-// creates a tuple of source + output
-private fun <T, U> Observable<T>.zipSwitch(mapper: (T) -> Maybe<U>): Observable<Pair<T, U>> =
-        this.switchMapMaybe { source -> Maybe.just(source).zipWith(mapper(source)) }

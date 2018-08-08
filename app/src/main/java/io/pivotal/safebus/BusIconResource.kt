@@ -3,7 +3,6 @@ package io.pivotal.safebus
 import android.content.Context
 import android.graphics.*
 import android.support.annotation.DrawableRes
-import android.support.v4.content.ContextCompat
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import io.pivotal.safebus.api.Direction
@@ -14,9 +13,10 @@ class BitmapCreator(private val context: Context) {
         val drawable = context.getDrawable(resource)!!
         val bitmap = Bitmap.createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight, Bitmap.Config.ARGB_8888)
         val background = Paint()
-        val canvas = Canvas(bitmap)
-        val color = Color.rgb(135,206,235)
+        val color = Color.rgb(135, 206, 235)
         background.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_ATOP)
+
+        val canvas = Canvas(bitmap)
         canvas.drawRoundRect(
                 0.0f,
                 0.0f,
