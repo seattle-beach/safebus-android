@@ -13,7 +13,7 @@ class MarkerOverlay(private val map: SafeBusMap,
                     private val iconResource: BusIconResource,
                     private val markerLimit: Int = 150) {
 
-    private val safeBusMarkers: MutableList<SafeBusMarker> = mutableListOf()
+    private val safeBusMarkers: MutableSet<SafeBusMarker> = mutableSetOf()
     private var tappedMarker: Pair<Marker, SafeBusMarker>? = null
     val onMarkerClicked = BehaviorSubject.create<Marker>()
 
@@ -55,10 +55,10 @@ class MarkerOverlay(private val map: SafeBusMap,
                 .icon(iconResource.getIcon(this.direction))
     }
 
-    private fun extraMarkers(alreadyAdded: List<SafeBusMarker>, extraMarkerCount: Int): List<SafeBusMarker> {
+    private fun extraMarkers(reAdded: Set<SafeBusMarker>, extraMarkerCount: Int): List<SafeBusMarker> {
         return if (extraMarkerCount > 0) {
-            safeBusMarkers
-                    .filterNot { marker -> marker.isSelected || alreadyAdded.contains(marker) }
+            val notToRemove = tappedMarker?.let { reAdded + it.second } ?: reAdded
+            (safeBusMarkers - notToRemove)
                     .sortedByDescending(this::distance) //remove the ones farther from the center first
                     .take(extraMarkerCount) //but only remove up to the extraMarkerCount
         } else {
@@ -72,8 +72,8 @@ class MarkerOverlay(private val map: SafeBusMap,
         return (marker.latitude - map.latitude).pow(2) + (marker.longitude - map.longitude).pow(2)
     }
 
-    private fun removeExisting(stops: MutableList<BusStop>): List<SafeBusMarker> {
-        val alreadyAdded: MutableList<SafeBusMarker> = mutableListOf()
+    private fun removeExisting(stops: MutableList<BusStop>): Set<SafeBusMarker> {
+        val alreadyAdded: MutableSet<SafeBusMarker> = mutableSetOf()
 
         stops.removeIf { stop ->
             val existingMarker = safeBusMarkers.find { safeBusMarker -> safeBusMarker.id == stop.id }
