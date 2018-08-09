@@ -133,7 +133,6 @@ class BusMapActivityTest : KoinTest {
     fun centersMapWithoutRezooming_whenBusIsTapped() {
         every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(true)
         every { locationClient.lastLocation } returns Tasks.forResult(null)
-        every { favoriteStopsRepository.exists(any()) } returns false
 
         subjectController.setup()
 
@@ -168,7 +167,6 @@ class BusMapActivityTest : KoinTest {
         every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(true)
         every { locationClient.lastLocation } returns Tasks.forResult(null)
         every { favoriteStopsRepository.toggle(any()) } returns true
-        every { favoriteStopsRepository.exists(any()) } returns false
 
         subjectController.setup()
 
@@ -187,7 +185,7 @@ class BusMapActivityTest : KoinTest {
     fun startsRedIfAlreadyFavorite() {
         every { rxPermissions.request(ACCESS_FINE_LOCATION) } returns Observable.just(true)
         every { locationClient.lastLocation } returns Tasks.forResult(null)
-        every { favoriteStopsRepository.exists(any()) } returns true
+        marker.isFavorite = true
 
         subjectController.setup()
 

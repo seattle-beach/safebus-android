@@ -7,7 +7,9 @@ import com.google.android.gms.maps.SupportMapFragment
 import io.reactivex.Single
 import io.reactivex.subjects.BehaviorSubject
 
-class MapEmitter(activity: FragmentActivity, private val iconResource: BusIconResource) : OnMapReadyCallback {
+class MapEmitter(activity: FragmentActivity,
+                 private val iconResource: BusIconResource,
+                 private val favoriteStopsRepository: FavoriteStopsRepository) : OnMapReadyCallback {
     private val onMapReady = BehaviorSubject.create<SafeBusMap>()
 
     init {
@@ -22,7 +24,7 @@ class MapEmitter(activity: FragmentActivity, private val iconResource: BusIconRe
         map.uiSettings.isTiltGesturesEnabled = false
         map.uiSettings.isZoomControlsEnabled = true
 
-        val safeBusMap = SafeBusMap(map, iconResource)
+        val safeBusMap = SafeBusMap(map, iconResource, favoriteStopsRepository)
         onMapReady.onNext(safeBusMap)
     }
 }

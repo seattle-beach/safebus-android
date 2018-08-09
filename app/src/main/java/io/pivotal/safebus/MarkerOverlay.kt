@@ -11,11 +11,19 @@ import kotlin.math.pow
 
 class MarkerOverlay(private val map: SafeBusMap,
                     private val iconResource: BusIconResource,
+                    private val favoriteStopsRepository: FavoriteStopsRepository,
                     private val markerLimit: Int = 150) {
 
     private val safeBusMarkers: MutableSet<SafeBusMarker> = mutableSetOf()
     private var tappedMarker: Pair<Marker, SafeBusMarker>? = null
     val onMarkerClicked = BehaviorSubject.create<Marker>()
+
+    init {
+        favoriteStopsRepository.onToggle().subscribe { (stopId, isFavorite) ->
+            val marker = safeBusMarkers.find { it.id == stopId }
+            marker?.also { it.isFavorite = isFavorite }
+        }
+    }
 
     fun addStops(stops: Iterable<BusStop>) {
         val allStops = stops.toMutableList()
@@ -30,7 +38,14 @@ class MarkerOverlay(private val map: SafeBusMap,
         }
 
         newStops.map { stop -> Pair(stop.into(), stop) }
-                .map { (markerOptions, stop) -> SafeBusMarker(stop, false, false, map.addMarker(markerOptions)) }
+                .map { (markerOptions, stop) ->
+                    SafeBusMarker(
+                            stop = stop,
+                            isSelected = false,
+                            isFavorite = favoriteStopsRepository.isFavorite(stop.id),
+                            googleMarker = map.addMarker(markerOptions)
+                    )
+                }
                 .let { newMarkers -> safeBusMarkers.addAll(newMarkers) }
     }
 

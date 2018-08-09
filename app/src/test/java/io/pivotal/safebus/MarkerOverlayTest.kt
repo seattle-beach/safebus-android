@@ -6,6 +6,7 @@ import io.mockk.impl.annotations.MockK
 import io.pivotal.safebus.api.BusStop
 import io.pivotal.safebus.api.Direction
 import io.reactivex.observers.TestObserver
+import io.reactivex.subjects.PublishSubject
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -16,12 +17,14 @@ class MarkerOverlayTest {
     private lateinit var safeBusMap: SafeBusMap
     @MockK
     private lateinit var iconResource: BusIconResource
+    @MockK
+    private lateinit var favoriteStopsRepository: FavoriteStopsRepository
 
     private lateinit var capturedMarkers: MutableMap<String, Marker>
     private lateinit var capturedIcons: MutableMap<Direction, BitmapDescriptor>
-
-    private lateinit var subject: MarkerOverlay
     private lateinit var observer: TestObserver<SafeBusMarker>
+    private lateinit var favoriteStopsStream: PublishSubject<Pair<String, Boolean>>
+    private lateinit var subject: MarkerOverlay
 
     private val northStop = BusStop("1_1", 47.599274, -122.333282, Direction.NORTH, "James St. 1")
     private val southStop = BusStop("1_2", 48.599274, -122.333282, Direction.SOUTH, "James St. 2")
@@ -70,7 +73,11 @@ class MarkerOverlayTest {
             bitmap
         }
 
-        subject = MarkerOverlay(safeBusMap, iconResource, 2)
+        favoriteStopsStream = PublishSubject.create()
+        every { favoriteStopsRepository.isFavorite(any()) } returns false
+        every { favoriteStopsRepository.onToggle() } returns favoriteStopsStream
+
+        subject = MarkerOverlay(safeBusMap, iconResource, favoriteStopsRepository, 2)
         subject.busStopTapped().subscribe(observer)
     }
 
@@ -111,7 +118,7 @@ class MarkerOverlayTest {
     @Test
     fun doesNotRemoveSelectedMarker() {
         subject.addStops(listOf(northStop, southStop))
-        subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
+        subject.onMarkerClicked.onNext(markerForStop(northStop))
 
         subject.addStops(listOf(southStop, noDirectionStop))
 
@@ -122,8 +129,8 @@ class MarkerOverlayTest {
     @Test
     fun removesPreviouslySelectedMarker() {
         subject.addStops(listOf(northStop, southStop))
-        subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
-        subject.onMarkerClicked.onNext(capturedMarkers[southStop.name]!!)
+        subject.onMarkerClicked.onNext(markerForStop(northStop))
+        subject.onMarkerClicked.onNext(markerForStop(southStop))
 
         subject.addStops(listOf(southStop, noDirectionStop))
 
@@ -151,8 +158,8 @@ class MarkerOverlayTest {
     @Test
     fun alertsOnBusStopTapped() {
         subject.addStops(listOf(northStop, southStop))
-        subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
-        subject.onMarkerClicked.onNext(capturedMarkers[southStop.name]!!)
+        subject.onMarkerClicked.onNext(markerForStop(northStop))
+        subject.onMarkerClicked.onNext(markerForStop(southStop))
 
         observer.assertNoErrors()
         observer.assertValueAt(0) { safeMarker -> safeMarker.id == northStop.id }
@@ -163,7 +170,7 @@ class MarkerOverlayTest {
     @Test
     fun addsADefaultMarkerWhereTapped() {
         subject.addStops(listOf(northStop))
-        subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
+        subject.onMarkerClicked.onNext(markerForStop(northStop))
         val noTitleMarker = capturedMarkers["NO_TITLE"]
         assertNotNull(noTitleMarker)
         assertEquals(noTitleMarker?.position, LatLng(northStop.lat, northStop.lon))
@@ -172,8 +179,8 @@ class MarkerOverlayTest {
     @Test
     fun noAlertIfNonStopMarkerIsTapped() {
         subject.addStops(listOf(northStop))
-        subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
-        subject.onMarkerClicked.onNext(capturedMarkers["NO_TITLE"]!!)
+        subject.onMarkerClicked.onNext(markerForStop(northStop))
+        subject.onMarkerClicked.onNext(noTitleMarker())
         observer.assertValue { safeMarker -> safeMarker.id == northStop.id }
 
     }
@@ -182,11 +189,11 @@ class MarkerOverlayTest {
     fun switchesMarkerOnSecondTap() {
         subject.addStops(listOf(northStop, southStop))
 
-        subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
-        val firstNoTitleMarker = capturedMarkers["NO_TITLE"]!!
+        subject.onMarkerClicked.onNext(markerForStop(northStop))
+        val firstNoTitleMarker = noTitleMarker()
 
-        subject.onMarkerClicked.onNext(capturedMarkers[southStop.name]!!)
-        val secondNoTitleMarker = capturedMarkers["NO_TITLE"]!!
+        subject.onMarkerClicked.onNext(markerForStop(southStop))
+        val secondNoTitleMarker = noTitleMarker()
 
         assertNotEquals(firstNoTitleMarker, secondNoTitleMarker)
         verify { firstNoTitleMarker.remove() }
@@ -198,7 +205,45 @@ class MarkerOverlayTest {
         subject.addStops(listOf(northStop, southStop))
         subject.addStops(listOf(northStop, noDirectionStop))
 
-        subject.onMarkerClicked.onNext(capturedMarkers[southStop.name]!!)
+        subject.onMarkerClicked.onNext(markerForStop(southStop))
         observer.assertNoValues()
     }
+
+    @Test
+    fun setsMarkerAsFavorite_whenRepositoryUpdates() {
+        subject.addStops(listOf(northStop, southStop))
+
+        // mark north as favorite and assert
+        favoriteStopsStream.onNext(Pair(northStop.id, true))
+        subject.onMarkerClicked.onNext(markerForStop(northStop))
+        observer.assertValueAt(0) { it.isFavorite }
+
+        // assert south is not favorite
+        subject.onMarkerClicked.onNext(markerForStop(southStop))
+        observer.assertValueAt(1) { !it.isFavorite }
+
+        // toggle north back as not favorite and assert
+        favoriteStopsStream.onNext(Pair(northStop.id, false))
+        subject.onMarkerClicked.onNext(markerForStop(northStop))
+        observer.assertValueAt(2) { !it.isFavorite }
+    }
+
+    @Test
+    fun respectsInitialIsFavorite() {
+        every { favoriteStopsRepository.isFavorite(northStop.id) } returns false
+        every { favoriteStopsRepository.isFavorite(southStop.id) } returns true
+
+        subject.addStops(listOf(northStop, southStop))
+
+        // north is not favorite
+        subject.onMarkerClicked.onNext(markerForStop(northStop))
+        observer.assertValueAt(0) { !it.isFavorite }
+
+        // south is favorite
+        subject.onMarkerClicked.onNext(markerForStop(southStop))
+        observer.assertValueAt(1) { it.isFavorite }
+    }
+
+    private fun markerForStop(stop: BusStop) = capturedMarkers[stop.name]!!
+    private fun noTitleMarker() = capturedMarkers["NO_TITLE"]!!
 }

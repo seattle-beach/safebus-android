@@ -59,7 +59,7 @@ class BusMapActivity : AppCompatActivity() {
         mapReady.flatMapObservable { it.busStopTapped() }
                 .subscribe { stop ->
                     selectedStop = stop //TODO: Revisit if we want to save it or ask SafeBusMap
-                    val colorResource = iconColor(favoriteStopsRepository.exists(stop.id))
+                    val colorResource = iconColor(stop.isFavorite)
                     favoriteIcon.setColorFilter(getColor(colorResource))
 
                     busStopTitle.text = stop.name

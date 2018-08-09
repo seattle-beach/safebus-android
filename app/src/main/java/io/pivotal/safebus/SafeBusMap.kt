@@ -11,7 +11,7 @@ import io.pivotal.safebus.api.BusStop
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
 
-class SafeBusMap(private val map: GoogleMap, iconResource: BusIconResource) {
+class SafeBusMap(private val map: GoogleMap, iconResource: BusIconResource, favoriteStopsRepository: FavoriteStopsRepository) {
     private val onCameraIdle = BehaviorSubject.create<LatLngBounds>()
 
     var isMyLocationEnabled: Boolean
@@ -27,7 +27,7 @@ class SafeBusMap(private val map: GoogleMap, iconResource: BusIconResource) {
     val latLngBounds: LatLngBounds
         get() = this.map.projection.visibleRegion.latLngBounds
 
-    private val markerOverlay = MarkerOverlay(this, iconResource)
+    private val markerOverlay = MarkerOverlay(this, iconResource, favoriteStopsRepository)
 
     init {
         map.setOnCameraIdleListener { onCameraIdle.onNext(this.latLngBounds) }
