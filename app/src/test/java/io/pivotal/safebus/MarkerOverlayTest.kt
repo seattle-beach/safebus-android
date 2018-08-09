@@ -21,6 +21,7 @@ class MarkerOverlayTest {
     private lateinit var capturedIcons: MutableMap<Direction, BitmapDescriptor>
 
     private lateinit var subject: MarkerOverlay
+    private lateinit var observer: TestObserver<SafeBusMarker>
 
     private val northStop = BusStop("1_1", 47.599274, -122.333282, Direction.NORTH, "James St. 1")
     private val southStop = BusStop("1_2", 48.599274, -122.333282, Direction.SOUTH, "James St. 2")
@@ -44,6 +45,7 @@ class MarkerOverlayTest {
         MockKAnnotations.init(this, relaxUnitFun = true)
         capturedMarkers = HashMap()
         capturedIcons = HashMap()
+        observer = TestObserver()
 
         val markerCapture = slot<MarkerOptions>()
         every { safeBusMap.addMarker(capture(markerCapture)) } answers {
@@ -56,7 +58,6 @@ class MarkerOverlayTest {
             } else {
                 capturedMarkers["NO_TITLE"] = marker
             }
-            every { marker.isInfoWindowShown } returns false
             marker
         }
 
@@ -70,6 +71,7 @@ class MarkerOverlayTest {
         }
 
         subject = MarkerOverlay(safeBusMap, iconResource, 2)
+        subject.busStopTapped().subscribe(observer)
     }
 
     @Test
@@ -108,18 +110,29 @@ class MarkerOverlayTest {
 
     @Test
     fun doesNotRemoveSelectedMarker() {
-        val subject = MarkerOverlay(safeBusMap, iconResource, 1)
+        subject.addStops(listOf(northStop, southStop))
+        subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
 
-        subject.addStops(listOf(northStop))
-        every { capturedMarkers[northStop.name]?.isInfoWindowShown } returns true
-        subject.addStops(listOf(southStop))
+        subject.addStops(listOf(southStop, noDirectionStop))
 
         verify(exactly = 0) { capturedMarkers[northStop.name]?.remove() }
         verify { safeBusMap.addMarker(markerStopMatcher(southStop)) }
     }
 
     @Test
-    fun addingDuplicateDOesNotCountTowardsLimit() {
+    fun removesPreviouslySelectedMarker() {
+        subject.addStops(listOf(northStop, southStop))
+        subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
+        subject.onMarkerClicked.onNext(capturedMarkers[southStop.name]!!)
+
+        subject.addStops(listOf(southStop, noDirectionStop))
+
+        verify { capturedMarkers[northStop.name]?.remove() }
+        verify { safeBusMap.addMarker(markerStopMatcher(southStop)) }
+    }
+
+    @Test
+    fun addingDuplicateDoesNotCountTowardsLimit() {
         subject.addStops(listOf(northStop))
         subject.addStops(listOf(northStop, southStop))
 
@@ -137,20 +150,18 @@ class MarkerOverlayTest {
 
     @Test
     fun alertsOnBusStopTapped() {
-        val observer = TestObserver<BusStop>()
-        subject.busStopTapped().subscribe(observer)
         subject.addStops(listOf(northStop, southStop))
         subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
         subject.onMarkerClicked.onNext(capturedMarkers[southStop.name]!!)
 
         observer.assertNoErrors()
-        observer.assertValues(northStop, southStop)
+        observer.assertValueAt(0) { safeMarker -> safeMarker.id == northStop.id }
+        observer.assertValueAt(1) { safeMarker -> safeMarker.id == southStop.id }
+        observer.assertValueCount(2)
     }
 
     @Test
     fun addsADefaultMarkerWhereTapped() {
-        val observer = TestObserver<BusStop>()
-        subject.busStopTapped().subscribe(observer)
         subject.addStops(listOf(northStop))
         subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
         val noTitleMarker = capturedMarkers["NO_TITLE"]
@@ -160,18 +171,15 @@ class MarkerOverlayTest {
 
     @Test
     fun noAlertIfNonStopMarkerIsTapped() {
-        val observer = TestObserver<BusStop>()
-        subject.busStopTapped().subscribe(observer)
         subject.addStops(listOf(northStop))
         subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
         subject.onMarkerClicked.onNext(capturedMarkers["NO_TITLE"]!!)
-        observer.assertValue(northStop)
+        observer.assertValue { safeMarker -> safeMarker.id == northStop.id }
+
     }
 
     @Test
     fun switchesMarkerOnSecondTap() {
-        val observer = TestObserver<BusStop>()
-        subject.busStopTapped().subscribe(observer)
         subject.addStops(listOf(northStop, southStop))
 
         subject.onMarkerClicked.onNext(capturedMarkers[northStop.name]!!)
@@ -187,8 +195,6 @@ class MarkerOverlayTest {
 
     @Test
     fun noReactionForRemovedStop() {
-        val observer = TestObserver<BusStop>()
-        subject.busStopTapped().subscribe(observer)
         subject.addStops(listOf(northStop, southStop))
         subject.addStops(listOf(northStop, noDirectionStop))
 

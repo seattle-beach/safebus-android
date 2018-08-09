@@ -39,7 +39,7 @@ class SafeBusMap(private val map: GoogleMap, iconResource: BusIconResource) {
 
     fun cameraIdle(): Observable<LatLngBounds> = onCameraIdle
 
-    fun busStopTapped(): Observable<BusStop> = this.markerOverlay.busStopTapped()
+    fun busStopTapped(): Observable<SafeBusMarker> = this.markerOverlay.busStopTapped()
 
     fun moveCamera(position: CameraPosition) = this.map.moveCamera(CameraUpdateFactory.newCameraPosition(position))
 

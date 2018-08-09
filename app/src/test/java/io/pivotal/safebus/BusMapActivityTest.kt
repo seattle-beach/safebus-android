@@ -14,6 +14,7 @@ import com.tbruyelle.rxpermissions2.RxPermissions
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
+import io.mockk.mockk
 import io.mockk.verify
 import io.pivotal.safebus.api.BusStop
 import io.pivotal.safebus.api.Direction
@@ -44,6 +45,14 @@ class BusMapActivityTest : KoinTest {
             .zoom(16.0f)
             .build()
 
+    private val stop = BusStop(id = "1_1", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "FOO")
+    private val marker = SafeBusMarker(
+            stop = stop,
+            isFavorite = false,
+            isSelected = false,
+            googleMarker = mockk()
+    )
+
     private val safeBusApi by inject<SafeBusApi>()
     private val locationClient by inject<FusedLocationProviderClient>()
     private val mapEmitter by inject<MapEmitter>()
@@ -57,7 +66,7 @@ class BusMapActivityTest : KoinTest {
 
     private lateinit var subject: BusMapActivity
     private lateinit var mapIdleStream: BehaviorSubject<LatLngBounds>
-    private lateinit var busTappedStream: BehaviorSubject<BusStop>
+    private lateinit var markerTappedStream: BehaviorSubject<SafeBusMarker>
 
     @MockK
     lateinit var safeBusMap: SafeBusMap
@@ -68,11 +77,11 @@ class BusMapActivityTest : KoinTest {
     fun setup() {
         MockKAnnotations.init(this, relaxUnitFun = true)
         mapIdleStream = BehaviorSubject.create()
-        busTappedStream = BehaviorSubject.create()
+        markerTappedStream = BehaviorSubject.create()
 
         every { mapEmitter.mapReady() } returns Single.just(safeBusMap)
         every { safeBusMap.cameraIdle() } returns mapIdleStream
-        every { safeBusMap.busStopTapped() } returns busTappedStream
+        every { safeBusMap.busStopTapped() } returns markerTappedStream
 
         subjectController = Robolectric.buildActivity(BusMapActivity::class.java)
         subject = subjectController.get()
@@ -130,7 +139,7 @@ class BusMapActivityTest : KoinTest {
 
         every { safeBusMap.cameraPosition } returns CameraPosition.fromLatLngZoom(LatLng(20.0, 20.0), 12.0f)
 
-        busTappedStream.onNext(BusStop(id = "1_1", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "FOO"))
+        markerTappedStream.onNext(marker)
 
         verify { safeBusMap.animateCamera(CameraPosition.fromLatLngZoom(LatLng(12.2, 12.3), 12.0f)) }
     }
@@ -145,7 +154,7 @@ class BusMapActivityTest : KoinTest {
 
         every { safeBusMap.cameraPosition } returns CameraPosition.fromLatLngZoom(LatLng(20.0, 20.0), 12.0f)
 
-        busTappedStream.onNext(BusStop(id = "1_1", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "FOO"))
+        markerTappedStream.onNext(marker)
         subject.favoriteIcon.performClick()
 
         val colorFilter = shadowOf(subject.favoriteIcon.colorFilter as PorterDuffColorFilter)
@@ -165,9 +174,9 @@ class BusMapActivityTest : KoinTest {
 
         every { safeBusMap.cameraPosition } returns CameraPosition.fromLatLngZoom(LatLng(20.0, 20.0), 12.0f)
 
-        busTappedStream.onNext(BusStop(id = "1_1", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "FOO"))
+        markerTappedStream.onNext(marker)
         subject.favoriteIcon.performClick()
-        busTappedStream.onNext(BusStop(id = "1_3", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "BAR"))
+        markerTappedStream.onNext(marker.copy(stop = stop.copy("1_2")))
 
         val colorFilter = shadowOf(subject.favoriteIcon.colorFilter as PorterDuffColorFilter)
 
@@ -184,7 +193,7 @@ class BusMapActivityTest : KoinTest {
 
         every { safeBusMap.cameraPosition } returns CameraPosition.fromLatLngZoom(LatLng(20.0, 20.0), 12.0f)
 
-        busTappedStream.onNext(BusStop(id = "1_1", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "FOO"))
+        markerTappedStream.onNext(marker)
         val colorFilter = shadowOf(subject.favoriteIcon.colorFilter as PorterDuffColorFilter)
 
         assertEquals(subject.getColor(R.color.favoriteStop), colorFilter.color)
@@ -200,7 +209,7 @@ class BusMapActivityTest : KoinTest {
 
         every { safeBusMap.cameraPosition } returns CameraPosition.fromLatLngZoom(LatLng(20.0, 20.0), 12.0f)
 
-        busTappedStream.onNext(BusStop(id = "1_1", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "FOO"))
+        markerTappedStream.onNext(marker)
         subject.favoriteIcon.performClick()
 
         val colorFilter = shadowOf(subject.favoriteIcon.colorFilter as PorterDuffColorFilter)

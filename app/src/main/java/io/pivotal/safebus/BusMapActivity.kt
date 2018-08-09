@@ -41,7 +41,7 @@ class BusMapActivity : AppCompatActivity() {
 
     private lateinit var map: SafeBusMap
 
-    private var selectedStop: BusStop? = null
+    private var selectedStop: SafeBusMarker? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,14 +58,13 @@ class BusMapActivity : AppCompatActivity() {
 
         mapReady.flatMapObservable { it.busStopTapped() }
                 .subscribe { stop ->
-                    selectedStop = stop
-
+                    selectedStop = stop //TODO: Revisit if we want to save it or ask SafeBusMap
                     val colorResource = iconColor(favoriteStopsRepository.exists(stop.id))
                     favoriteIcon.setColorFilter(getColor(colorResource))
 
                     busStopTitle.text = stop.name
                     toolBar.displayedChild = MapStatus.SELECTED.ordinal
-                    map.animateCamera(CameraPosition.fromLatLngZoom(LatLng(stop.lat, stop.lon), map.cameraPosition.zoom))
+                    map.animateCamera(CameraPosition.fromLatLngZoom(stop.position, map.cameraPosition.zoom))
                 }
 
         stops.firstElement().subscribe { toolBar.displayedChild = MapStatus.UNSELECTED.ordinal }
