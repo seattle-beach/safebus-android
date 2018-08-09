@@ -21,7 +21,7 @@ class MarkerOverlayTest {
     private lateinit var favoriteStopsRepository: FavoriteStopsRepository
 
     private lateinit var capturedMarkers: MutableMap<String, Marker>
-    private lateinit var capturedIcons: MutableMap<Direction, BitmapDescriptor>
+    private lateinit var capturedIcons: MutableMap<Pair<Direction, Boolean>, BitmapDescriptor>
     private lateinit var observer: TestObserver<SafeBusMarker>
     private lateinit var favoriteStopsStream: PublishSubject<Pair<String, Boolean>>
     private lateinit var subject: MarkerOverlay
@@ -30,18 +30,16 @@ class MarkerOverlayTest {
     private val southStop = BusStop("1_2", 48.599274, -122.333282, Direction.SOUTH, "James St. 2")
     private val noDirectionStop = BusStop("1_3", 49.599274, -122.333282, Direction.NONE, "James St. 3")
 
-    private fun MockKVerificationScope.markerStopMatcher(firstStop: BusStop): MarkerOptions =
-            match { m -> m.isMarkerForStop(firstStop) }
+    private fun MockKVerificationScope.markerStopMatcher(firstStop: BusStop, isFavorite: Boolean): MarkerOptions =
+            match { m -> m.isMarkerForStop(firstStop, isFavorite) }
 
-    private fun MarkerOptions.isMarkerForStop(stop: BusStop): Boolean {
-        return this.position.latitude == stop.lat
-                && this.position.longitude == stop.lon
-                && this.title == stop.name
-                && this.icon == capturedIcons[stop.direction]
-                && this.anchorU == 0.5f
-                && this.anchorV == 0.5f
-                && this.icon != null
-    }
+    private fun MarkerOptions.isMarkerForStop(stop: BusStop, isFavorite: Boolean): Boolean =
+            position == LatLng(stop.lat, stop.lon)
+                    && title == stop.name
+                    && icon == capturedIcons[Pair(stop.direction, isFavorite)]
+                    && anchorU == 0.5f
+                    && anchorV == 0.5f
+                    && icon != null
 
     @Before
     fun setup() {
@@ -66,10 +64,11 @@ class MarkerOverlayTest {
 
         every { safeBusMap.latLngBounds } returns LatLngBounds(LatLng(47.599274, -122.333282), LatLng(48.599274, -121.333282))
 
-        val directionCapture = slot<Direction>()
-        every { iconResource.getIcon(capture(directionCapture)) } answers {
+        val direction = slot<Direction>()
+        val isFavorite = slot<Boolean>()
+        every { iconResource.getIcon(capture(direction), capture(isFavorite)) } answers {
             val bitmap = mockk<BitmapDescriptor>()
-            capturedIcons[directionCapture.captured] = bitmap
+            capturedIcons[Pair(direction.captured, isFavorite.captured)] = bitmap
             bitmap
         }
 
@@ -85,8 +84,8 @@ class MarkerOverlayTest {
     fun addsStops() {
         subject.addStops(listOf(northStop, southStop))
 
-        verify { safeBusMap.addMarker(markerStopMatcher(northStop)) }
-        verify { safeBusMap.addMarker(markerStopMatcher(southStop)) }
+        verify { safeBusMap.addMarker(markerStopMatcher(northStop, false)) }
+        verify { safeBusMap.addMarker(markerStopMatcher(southStop, false)) }
     }
 
     @Test
@@ -94,8 +93,8 @@ class MarkerOverlayTest {
         subject.addStops(listOf(northStop))
         subject.addStops(listOf(southStop, northStop))
 
-        verify(exactly = 1) { safeBusMap.addMarker(markerStopMatcher(northStop)) }
-        verify(exactly = 1) { safeBusMap.addMarker(markerStopMatcher(southStop)) }
+        verify(exactly = 1) { safeBusMap.addMarker(markerStopMatcher(northStop, false)) }
+        verify(exactly = 1) { safeBusMap.addMarker(markerStopMatcher(southStop, false)) }
     }
 
     @Test
@@ -110,7 +109,7 @@ class MarkerOverlayTest {
         subject.addStops(listOf(northStop, noDirectionStop))
         subject.addStops(listOf(southStop))
 
-        verify { safeBusMap.addMarker(markerStopMatcher(southStop)) }
+        verify { safeBusMap.addMarker(markerStopMatcher(southStop, false)) }
         verify { capturedMarkers[noDirectionStop.name]?.remove() }
         verify(exactly = 0) { capturedMarkers[northStop.name]?.remove() }
     }
@@ -123,7 +122,7 @@ class MarkerOverlayTest {
         subject.addStops(listOf(southStop, noDirectionStop))
 
         verify(exactly = 0) { capturedMarkers[northStop.name]?.remove() }
-        verify { safeBusMap.addMarker(markerStopMatcher(southStop)) }
+        verify { safeBusMap.addMarker(markerStopMatcher(southStop, false)) }
     }
 
     @Test
@@ -135,7 +134,7 @@ class MarkerOverlayTest {
         subject.addStops(listOf(southStop, noDirectionStop))
 
         verify { capturedMarkers[northStop.name]?.remove() }
-        verify { safeBusMap.addMarker(markerStopMatcher(southStop)) }
+        verify { safeBusMap.addMarker(markerStopMatcher(southStop, false)) }
     }
 
     @Test
@@ -212,20 +211,25 @@ class MarkerOverlayTest {
     @Test
     fun setsMarkerAsFavorite_whenRepositoryUpdates() {
         subject.addStops(listOf(northStop, southStop))
+        val northGoogleMarker = markerForStop(northStop)
+        val southGoogleMarker = markerForStop(southStop)
 
         // mark north as favorite and assert
         favoriteStopsStream.onNext(Pair(northStop.id, true))
-        subject.onMarkerClicked.onNext(markerForStop(northStop))
+        subject.onMarkerClicked.onNext(northGoogleMarker)
         observer.assertValueAt(0) { it.isFavorite }
+        verify { northGoogleMarker.setIcon(capturedIcons[Pair(Direction.NORTH, true)]) }
 
         // assert south is not favorite
-        subject.onMarkerClicked.onNext(markerForStop(southStop))
+        subject.onMarkerClicked.onNext(southGoogleMarker)
         observer.assertValueAt(1) { !it.isFavorite }
+        verify(exactly = 0) { southGoogleMarker.setIcon(any()) }
 
         // toggle north back as not favorite and assert
         favoriteStopsStream.onNext(Pair(northStop.id, false))
-        subject.onMarkerClicked.onNext(markerForStop(northStop))
+        subject.onMarkerClicked.onNext(northGoogleMarker)
         observer.assertValueAt(2) { !it.isFavorite }
+        verify { northGoogleMarker.setIcon(capturedIcons[Pair(Direction.NORTH, false)]) }
     }
 
     @Test
@@ -234,6 +238,10 @@ class MarkerOverlayTest {
         every { favoriteStopsRepository.isFavorite(southStop.id) } returns true
 
         subject.addStops(listOf(northStop, southStop))
+
+        verify { safeBusMap.addMarker(markerStopMatcher(northStop, false)) }
+        verify { safeBusMap.addMarker(markerStopMatcher(southStop, true)) }
+
 
         // north is not favorite
         subject.onMarkerClicked.onNext(markerForStop(northStop))

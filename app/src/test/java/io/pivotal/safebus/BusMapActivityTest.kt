@@ -46,12 +46,7 @@ class BusMapActivityTest : KoinTest {
             .build()
 
     private val stop = BusStop(id = "1_1", lat = 12.2, lon = 12.3, direction = Direction.NONE, name = "FOO")
-    private val marker = SafeBusMarker(
-            stop = stop,
-            isFavorite = false,
-            isSelected = false,
-            googleMarker = mockk()
-    )
+    private val marker = SafeBusMarker(stop, mockk())
 
     private val safeBusApi by inject<SafeBusApi>()
     private val locationClient by inject<FusedLocationProviderClient>()

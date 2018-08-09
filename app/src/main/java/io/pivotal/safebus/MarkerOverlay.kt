@@ -1,9 +1,11 @@
 package io.pivotal.safebus
 
+import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import io.pivotal.safebus.api.BusStop
+import io.pivotal.safebus.api.Direction
 import io.pivotal.safebus.extensions.rx.mapNotNull
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
@@ -21,7 +23,10 @@ class MarkerOverlay(private val map: SafeBusMap,
     init {
         favoriteStopsRepository.onToggle().subscribe { (stopId, isFavorite) ->
             val marker = safeBusMarkers.find { it.id == stopId }
-            marker?.also { it.isFavorite = isFavorite }
+            marker?.also {
+                it.isFavorite = isFavorite
+                it.setIcon(iconResource.getIcon(it.direction, it.isFavorite))
+            }
         }
     }
 
@@ -37,14 +42,14 @@ class MarkerOverlay(private val map: SafeBusMap,
             safeBusMarkers.remove(safeBusMarker)
         }
 
-        newStops.map { stop -> Pair(stop.into(), stop) }
-                .map { (markerOptions, stop) ->
+        newStops
+                .map { stop ->
+                    val isFavorite = favoriteStopsRepository.isFavorite(stop.id)
+                    val markerOptions = stop.into(isFavorite)
                     SafeBusMarker(
                             stop = stop,
-                            isSelected = false,
-                            isFavorite = favoriteStopsRepository.isFavorite(stop.id),
                             googleMarker = map.addMarker(markerOptions)
-                    )
+                    ).also { it.isFavorite = isFavorite }
                 }
                 .let { newMarkers -> safeBusMarkers.addAll(newMarkers) }
     }
@@ -53,8 +58,8 @@ class MarkerOverlay(private val map: SafeBusMap,
             .mapNotNull { googleMarker -> safeBusMarkers.find { safeMarker -> safeMarker.isWrapperOf(googleMarker) } }
             .doOnNext { tappedMarker ->
                 //undo previous tapped if existing
-                this.tappedMarker?.also { (marker, safeBusMarker) ->
-                    marker.remove()
+                this.tappedMarker?.also { (googleMarker, safeBusMarker) ->
+                    googleMarker.remove()
                     safeBusMarker.isSelected = false
                 }
                 tappedMarker.isSelected = true
@@ -62,12 +67,12 @@ class MarkerOverlay(private val map: SafeBusMap,
                 this.tappedMarker = Pair(googleMarker, tappedMarker)
             }
 
-    private fun BusStop.into(): MarkerOptions {
+    private fun BusStop.into(isFavorite: Boolean): MarkerOptions {
         return MarkerOptions()
                 .anchor(0.5f, 0.5f)
-                .title(this.name)
-                .position(LatLng(this.lat, this.lon))
-                .icon(iconResource.getIcon(this.direction))
+                .title(name)
+                .position(LatLng(lat, lon))
+                .icon(iconResource.getIcon(direction, isFavorite))
     }
 
     private fun extraMarkers(reAdded: Set<SafeBusMarker>, extraMarkerCount: Int): List<SafeBusMarker> {
@@ -104,7 +109,7 @@ class MarkerOverlay(private val map: SafeBusMap,
     }
 }
 
-data class SafeBusMarker(private val stop: BusStop, var isFavorite: Boolean, var isSelected: Boolean, private val googleMarker: Marker) {
+data class SafeBusMarker(private val stop: BusStop, private val googleMarker: Marker) {
     val name: String
         get() = stop.name
 
@@ -114,7 +119,14 @@ data class SafeBusMarker(private val stop: BusStop, var isFavorite: Boolean, var
     val id: String
         get() = stop.id
 
-    fun remove() = googleMarker.remove()
+    val direction: Direction
+        get() = stop.direction
 
+    // do not include these in constructor so that it does not mess with equals/hashcode
+    var isSelected: Boolean = false
+    var isFavorite: Boolean = false
+
+    fun remove() = googleMarker.remove()
     fun isWrapperOf(googleMarker: Marker): Boolean = googleMarker == this.googleMarker
+    fun setIcon(icon: BitmapDescriptor) = this.googleMarker.setIcon(icon)
 }

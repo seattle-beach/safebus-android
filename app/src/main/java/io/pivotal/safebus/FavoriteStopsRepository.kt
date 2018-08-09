@@ -5,15 +5,15 @@ import io.reactivex.Observable
 import io.reactivex.subjects.PublishSubject
 
 class FavoriteStopsRepository(context: Context) {
-    val preferences = context.getSharedPreferences(context.getString(R.string.favorite_stops_preferences), Context.MODE_PRIVATE)
-    val favoriteKey = context.getString(R.string.favorite_stops_key)
+    private val preferences = context.getSharedPreferences(context.getString(R.string.favorite_stops_preferences), Context.MODE_PRIVATE)
+    private val favoriteKey = context.getString(R.string.favorite_stops_key)
     private val _onToggle = PublishSubject.create<Pair<String, Boolean>>()
 
     fun isFavorite(favoriteStopId: String): Boolean =
             preferences.getStringSet(favoriteKey, emptySet())!!.contains(favoriteStopId)
 
     fun toggle(favoriteStopId: String): Boolean {
-        val favoriteStops = preferences.getStringSet(favoriteKey, mutableSetOf())!!
+        val favoriteStops = preferences.getStringSet(favoriteKey, setOf())?.toMutableSet()!!
 
         if (favoriteStops.contains(favoriteStopId)) {
             favoriteStops.remove(favoriteStopId)

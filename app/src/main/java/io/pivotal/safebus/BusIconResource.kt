@@ -9,11 +9,17 @@ import io.pivotal.safebus.api.Direction
 
 
 class BitmapCreator(private val context: Context) {
-    fun createBitmap(@DrawableRes resource: Int): BitmapDescriptor {
+    fun createBitmap(@DrawableRes resource: Int, isFavorite: Boolean): BitmapDescriptor {
         val drawable = context.getDrawable(resource)!!
+        drawable.setBounds(0, 0, drawable.intrinsicWidth, drawable.intrinsicHeight)
         val bitmap = Bitmap.createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight, Bitmap.Config.ARGB_8888)
+
         val background = Paint()
-        val color = Color.rgb(135, 206, 235)
+        val color = if (isFavorite) {
+            Color.rgb(239,83,80)
+        } else {
+            Color.rgb(135, 206, 235)
+        }
         background.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_ATOP)
 
         val canvas = Canvas(bitmap)
@@ -26,7 +32,6 @@ class BitmapCreator(private val context: Context) {
                 drawable.intrinsicWidth.toFloat() / 6,
                 background
         )
-        drawable.setBounds(0, 0, drawable.intrinsicWidth, drawable.intrinsicHeight)
         drawable.draw(canvas)
 
         return BitmapDescriptorFactory.fromBitmap(bitmap)
@@ -34,13 +39,13 @@ class BitmapCreator(private val context: Context) {
 }
 
 class BusIconResource(private val creator: BitmapCreator) {
-    private val cache: MutableMap<Direction, BitmapDescriptor> = HashMap()
+    private val cache: MutableMap<Pair<Direction, Boolean>, BitmapDescriptor> = HashMap()
 
-    fun getIcon(direction: Direction): BitmapDescriptor {
-        return cache.getOrPut(direction) { create(direction) }
+    fun getIcon(direction: Direction, isFavorite: Boolean): BitmapDescriptor {
+        return cache.getOrPut(Pair(direction, isFavorite)) { create(direction, isFavorite) }
     }
 
-    private fun create(direction: Direction): BitmapDescriptor {
+    private fun create(direction: Direction, isFavorite: Boolean): BitmapDescriptor {
         val resource = when (direction) {
             Direction.NORTH -> R.drawable.bus_icon_north
             Direction.SOUTH -> R.drawable.bus_icon_south
@@ -52,6 +57,7 @@ class BusIconResource(private val creator: BitmapCreator) {
             Direction.SOUTHEAST -> R.drawable.bus_icon_southeast
             Direction.NONE -> R.drawable.bus_icon_no_direction
         }
-        return creator.createBitmap(resource)
+
+        return creator.createBitmap(resource, isFavorite)
     }
 }

@@ -10,98 +10,111 @@ import org.junit.Before
 import org.junit.Test
 
 class BusIconResourceTest {
-
-    lateinit var bitmapDescriptor: BitmapDescriptor
-    lateinit var bitmapCreator: BitmapCreator
-
-    lateinit var subject: BusIconResource
+    private lateinit var bitmapDescriptor: BitmapDescriptor
+    private lateinit var bitmapCreator: BitmapCreator
+    private lateinit var subject: BusIconResource
 
     @Before
     fun setup() {
         bitmapDescriptor = mockk()
         bitmapCreator = mockk()
-        every { bitmapCreator.createBitmap(any()) } returns bitmapDescriptor
+        every { bitmapCreator.createBitmap(any(), any()) } returns bitmapDescriptor
 
         subject = BusIconResource(bitmapCreator)
     }
 
     @Test
-    fun returns_bitmap_for_east_direction() {
-        val actualBitmap = subject.getIcon(Direction.EAST)
+    fun returnsBitmapForEastDirection() {
+        val actualBitmap = subject.getIcon(Direction.EAST, false)
         assertEquals(bitmapDescriptor, actualBitmap)
 
-        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_east) }
+        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_east, false) }
     }
 
     @Test
-    fun returns_bitmap_for_west_direction() {
-        val actualBitmap = subject.getIcon(Direction.WEST)
+    fun returnsBitmapForWestDirection() {
+        val actualBitmap = subject.getIcon(Direction.WEST, false)
         assertEquals(bitmapDescriptor, actualBitmap)
 
-        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_west) }
+        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_west, false) }
     }
 
     @Test
-    fun returns_bitmap_for_north_direction() {
-        val actualBitmap = subject.getIcon(Direction.NORTH)
+    fun returnsBitmapForNorthDirection() {
+        val actualBitmap = subject.getIcon(Direction.NORTH, false)
         assertEquals(bitmapDescriptor, actualBitmap)
 
-        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_north) }
+        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_north, false) }
     }
 
     @Test
-    fun returns_bitmap_for_south_direction() {
-        val actualBitmap = subject.getIcon(Direction.SOUTH)
+    fun returnsBitmapForSouthDirection() {
+        val actualBitmap = subject.getIcon(Direction.SOUTH, false)
         assertEquals(bitmapDescriptor, actualBitmap)
 
-        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_south) }
+        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_south, false) }
     }
 
     @Test
-    fun returns_bitmap_for_southeast_direction() {
-        val actualBitmap = subject.getIcon(Direction.SOUTHEAST)
+    fun returnsBitmapForSouthEastDirection() {
+        val actualBitmap = subject.getIcon(Direction.SOUTHEAST, false)
         assertEquals(bitmapDescriptor, actualBitmap)
 
-        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_southeast) }
+        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_southeast, false) }
     }
 
     @Test
-    fun returns_bitmap_for_northeast_direction() {
-        val actualBitmap = subject.getIcon(Direction.NORTHEAST)
+    fun returnsBitmapForNorthEastDirection() {
+        val actualBitmap = subject.getIcon(Direction.NORTHEAST, false)
         assertEquals(bitmapDescriptor, actualBitmap)
 
-        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_northeast) }
+        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_northeast, false) }
     }
 
     @Test
-    fun returns_bitmap_for_northwest_direction() {
-        val actualBitmap = subject.getIcon(Direction.NORTHWEST)
+    fun returnsBitmapForNorthWestDirection() {
+        val actualBitmap = subject.getIcon(Direction.NORTHWEST, false)
         assertEquals(bitmapDescriptor, actualBitmap)
 
-        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_northwest) }
+        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_northwest, false) }
     }
 
     @Test
-    fun returns_bitmap_for_southwest_direction() {
-        val actualBitmap = subject.getIcon(Direction.SOUTHWEST)
+    fun returnsBitmapForSouthWestDirection() {
+        val actualBitmap = subject.getIcon(Direction.SOUTHWEST, false)
         assertEquals(bitmapDescriptor, actualBitmap)
 
-        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_southwest) }
+        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_southwest, false) }
     }
 
     @Test
-    fun returns_bitmap_for_no_direction() {
-        val actualBitmap = subject.getIcon(Direction.NONE)
+    fun returnsBitmapForNoDirection() {
+        val actualBitmap = subject.getIcon(Direction.NONE, false)
         assertEquals(bitmapDescriptor, actualBitmap)
 
-        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_no_direction) }
+        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_no_direction, false) }
+    }
+
+    @Test
+    fun respectsIsFavorite() {
+        val actualBitmap = subject.getIcon(Direction.NONE, true)
+        assertEquals(bitmapDescriptor, actualBitmap)
+
+        verify { bitmapCreator.createBitmap(R.drawable.bus_icon_no_direction, true) }
     }
 
     @Test
     fun caches_bitmaps() {
-        subject.getIcon(Direction.EAST)
-        subject.getIcon(Direction.EAST)
+        subject.getIcon(Direction.EAST, false)
+        verify(exactly = 1) { bitmapCreator.createBitmap(any(), any()) }
 
-        verify(exactly = 1) { bitmapCreator.createBitmap(R.drawable.bus_icon_east) }
+        subject.getIcon(Direction.EAST, false)
+        verify(exactly = 1) { bitmapCreator.createBitmap(any(), any()) }
+
+        subject.getIcon(Direction.EAST, true)
+        verify(exactly = 2) { bitmapCreator.createBitmap(any(), any()) }
+
+        subject.getIcon(Direction.EAST, true)
+        verify(exactly = 2) { bitmapCreator.createBitmap(any(), any()) }
     }
 }
