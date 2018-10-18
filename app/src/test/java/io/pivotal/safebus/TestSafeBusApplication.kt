@@ -16,7 +16,7 @@ class TestSafeBusApplication : SafeBusApplication(), TestLifecycleApplication {
     }
 
     override fun afterTest(method: Method?) {
-        StandAloneContext.closeKoin()
+        StandAloneContext.stopKoin()
     }
 
     override fun beforeTest(method: Method?) {

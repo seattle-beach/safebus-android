@@ -21,6 +21,7 @@ import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.rxkotlin.zipWith
 import kotlinx.android.synthetic.main.activity_bus_map.*
 import org.koin.android.ext.android.inject
+import org.koin.core.parameter.parametersOf
 
 class BusMapActivity : AppCompatActivity() {
     enum class MapStatus {
@@ -35,8 +36,8 @@ class BusMapActivity : AppCompatActivity() {
     private val locationClient by inject<FusedLocationProviderClient>()
     private val ioScheduler by inject<Scheduler>("io")
     private val uiScheduler by inject<Scheduler>("ui")
-    private val rxPermissions by inject<RxPermissions>(parameters = { mapOf("activity" to this) })
-    private val mapEmitter by inject<MapEmitter>(parameters = { mapOf("activity" to this) })
+    private val rxPermissions by inject<RxPermissions> { parametersOf(this) }
+    private val mapEmitter by inject<MapEmitter> { parametersOf(this) }
     private val favoriteStopsRepository by inject<FavoriteStopsRepository>()
 
     private lateinit var map: SafeBusMap

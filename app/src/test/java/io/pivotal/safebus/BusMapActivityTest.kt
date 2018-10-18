@@ -84,6 +84,7 @@ class BusMapActivityTest : KoinTest {
         location.longitude = 12.32
         location.latitude = -82.3
         every { locationClient.lastLocation } returns Tasks.forResult(location)
+        every { safeBusApi.toString() } answers { "SafeBusApiMock" } //TODO: figure out why this fixes a test below
     }
 
     @Test

@@ -16,7 +16,7 @@ class BitmapCreator(private val context: Context) {
 
         val background = Paint()
         val color = if (isFavorite) {
-            Color.rgb(239,83,80)
+            Color.rgb(239, 83, 80)
         } else {
             Color.rgb(135, 206, 235)
         }
